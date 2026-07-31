@@ -11,8 +11,8 @@
 //   db.createTab(tabName)
 //
 // 分兩層：
-//   (a) 純函式 handler：handleAuth / handleGetAll（T10 起再加 handleSubmitAudit /
-//       handleMarkRest）——只碰 db 介面，禁止直接呼叫 SpreadsheetApp，node 假環境才能整測。
+//   (a) 純函式 handler：handleAuth / handleGetAll / handleSubmitAudit / handleMarkRest
+//       （T10 加入後兩者）——只碰 db 介面，禁止直接呼叫 SpreadsheetApp，node 假環境才能整測。
 //   (b) 薄 adapter makeDb_()：唯一允許出現 SpreadsheetApp 呼叫的地方，把 Sheet 包成 db 介面。
 // ──────────────────────────────────────────────────────────────────────
 
@@ -31,8 +31,21 @@ var STORES = [
   { code: 'mzt-lzl', name: '墨竹亭六張犁', tab: '六張犁店' }
 ];
 
-// ---- doPost 白名單（T9 只開放 auth/getAll；T10 加 submitAudit/markRest 時同步擴充）----
-var ACTIONS = ['auth', 'getAll'];
+// ---- doPost 白名單（T9 開放 auth/getAll；T10 加入 submitAudit/markRest）----
+var ACTIONS = ['auth', 'getAll', 'submitAudit', 'markRest'];
+
+// ---- T10：顯示分頁目標欄位配置（五分頁一律 A–I，同小辛辣光復店現況；spec.md §2.1）----
+var DISPLAY_COLS = {
+  month: 'A', sample_count: 'B', correct_count: 'C', correct_rate: 'D',
+  cash_change_correct: 'E', petty_cash_correct: 'F', tip_correct: 'G',
+  tip_amount: 'H', anomaly_note: 'I'
+};
+
+// ---- 枚舉（spec.md §5，逐字元，禁止同義詞）----
+var STATUS_VALUES = ['已稽核', '輪休'];
+var CASH_VALUES = ['正確', '不正確'];
+var TIP_MATCH_VALUES = ['相符', '不相符'];
+var VERDICT_VALUES = ['正確', '異常'];
 
 // ── doPost 入口 ──────────────────────────────────────────────────────
 function doPost(e) {
@@ -58,6 +71,10 @@ function doPost(e) {
     result = handleAuth(payload, db);
   } else if (action === 'getAll') {
     result = handleGetAll(payload, db);
+  } else if (action === 'submitAudit') {
+    result = handleSubmitAudit(payload, db);
+  } else if (action === 'markRest') {
+    result = handleMarkRest(payload, db);
   }
   return respond_(result);
 }
@@ -105,6 +122,67 @@ function handleGetAll(payload, db) {
     records: readRecords_(db),
     details: readDetails_(db)
   };
+}
+
+// handleSubmitAudit({code, record, details}, db) → {ok:true, record_key} | {ok:false, error}
+// 覆蓋語意：稽核紀錄同 record_key 整列取代（無則 append）；抽查明細先刪該 key 全部列再寫入；
+// 再回寫顯示分頁（spec.md §2.1/§2.2/§4）。三步同一次執行完成，不合法整筆拒收。
+function handleSubmitAudit(payload, db) {
+  var code = payload && payload.code;
+  var role = resolveRole_(code, db);
+  if (role !== 'accountant') {
+    return { ok: false, error: '無權限（僅會計可送出稽核）' };
+  }
+
+  var record = payload.record;
+  var details = payload.details || [];
+
+  var recordErr = validateRecord_(record);
+  if (recordErr) {
+    return { ok: false, error: recordErr };
+  }
+  var detailsErr = validateDetails_(details, record.record_key);
+  if (detailsErr) {
+    return { ok: false, error: detailsErr };
+  }
+
+  upsertRecord_(db, record);
+  replaceDetails_(db, record.record_key, details);
+  writeDisplayTabAudited_(db, record);
+
+  return { ok: true, record_key: record.record_key };
+}
+
+// handleMarkRest({code, store, month}, db) → {ok:true} | {ok:false, error}
+// 稽核紀錄寫/覆蓋一筆 status=輪休（數字欄空字串）；回寫顯示分頁 C=輪休、D–I 清空、B 保留原值。
+function handleMarkRest(payload, db) {
+  var code = payload && payload.code;
+  var role = resolveRole_(code, db);
+  if (role !== 'accountant') {
+    return { ok: false, error: '無權限（僅會計可標記輪休）' };
+  }
+
+  var store = payload && payload.store;
+  var month = payload && payload.month;
+  if (!storeByCode_(store)) {
+    return { ok: false, error: '店代碼不存在：' + store };
+  }
+  if (!/^\d{4}-\d{2}$/.test(String(month))) {
+    return { ok: false, error: '年月格式錯誤：' + month };
+  }
+
+  var key = store + '_' + month;
+  var now = nowISO_();
+  var record = {
+    record_key: key, store: store, month: month, status: '輪休',
+    audit_date: now.slice(0, 10), sample_count: '', correct_count: '', correct_rate: '',
+    change_fund: '', petty_cash: '', tip_amount: '', tip_match: '',
+    anomaly_text: '', note: '', submitted_at: now
+  };
+  upsertRecord_(db, record);
+  writeDisplayTabRest_(db, store, month);
+
+  return { ok: true };
 }
 
 // ── 內部工具：只碰 db 介面 ───────────────────────────────────────────
@@ -189,6 +267,142 @@ function readDetails_(db) {
       note: r[9]
     };
   });
+}
+
+// storeByCode_(code) → STORES 該筆物件 | null
+function storeByCode_(code) {
+  for (var i = 0; i < STORES.length; i++) {
+    if (STORES[i].code === code) return STORES[i];
+  }
+  return null;
+}
+
+// nowISO_() → ISO 8601 台北時區時間字串；node 假環境沒有 Utilities，退回 toISOString（測試不比對精確值）
+function nowISO_() {
+  var d = new Date();
+  if (typeof Utilities !== 'undefined' && Utilities.formatDate) {
+    return Utilities.formatDate(d, 'Asia/Taipei', "yyyy-MM-dd'T'HH:mm:ssXXX");
+  }
+  return d.toISOString();
+}
+
+// validateRecord_(record) → null（合法）| 錯誤字串（spec.md §5：record_key 格式、店代碼、枚舉逐字元）
+function validateRecord_(record) {
+  if (!record || typeof record !== 'object') return '缺少 record';
+  var store = record.store;
+  var month = record.month;
+  if (!storeByCode_(store)) return '店代碼不存在：' + store;
+  if (!/^\d{4}-\d{2}$/.test(String(month))) return '年月格式錯誤：' + month;
+  var expectedKey = store + '_' + month;
+  if (record.record_key !== expectedKey) return 'record_key 格式錯誤：' + record.record_key;
+  if (STATUS_VALUES.indexOf(record.status) === -1) return '狀態不合法：' + record.status;
+  if (CASH_VALUES.indexOf(record.change_fund) === -1) return '零找金欄位不合法：' + record.change_fund;
+  if (CASH_VALUES.indexOf(record.petty_cash) === -1) return '零用金欄位不合法：' + record.petty_cash;
+  if (TIP_MATCH_VALUES.indexOf(record.tip_match) === -1) return '小費相符欄位不合法：' + record.tip_match;
+  return null;
+}
+
+// validateDetails_(details, recordKey) → null（合法）| 錯誤字串（判定枚舉、record_key 一致）
+function validateDetails_(details, recordKey) {
+  if (!Array.isArray(details)) return '明細格式錯誤';
+  for (var i = 0; i < details.length; i++) {
+    var d = details[i];
+    if (!d || d.record_key !== recordKey) {
+      return '明細第' + (i + 1) + '筆 record_key 與 record 不一致';
+    }
+    if (VERDICT_VALUES.indexOf(d.verdict) === -1) {
+      return '明細第' + (i + 1) + '筆判定不合法：' + (d && d.verdict);
+    }
+  }
+  return null;
+}
+
+// recordToRow_(record) → 稽核紀錄分頁一列（A–O，spec.md §2.2）
+function recordToRow_(record) {
+  return [
+    record.record_key, record.store, record.month, record.status, record.audit_date,
+    record.sample_count, record.correct_count, record.correct_rate,
+    record.change_fund, record.petty_cash, record.tip_amount, record.tip_match,
+    record.anomaly_text, record.note, record.submitted_at
+  ];
+}
+
+// detailToRow_(d) → 抽查明細分頁一列（A–J，spec.md §2.2）
+function detailToRow_(d) {
+  return [d.record_key, d.store, d.month, d.item, d.unit, d.book_qty, d.recount_qty, d.verdict, d.reason, d.note];
+}
+
+// upsertRecord_(db, record) → 稽核紀錄同 record_key 整列取代，無則 append
+function upsertRecord_(db, record) {
+  var rows = db.getRows(TAB_RECORDS);
+  var row = recordToRow_(record);
+  var idx = -1;
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i] && rows[i][0] === record.record_key) {
+      idx = i;
+      break;
+    }
+  }
+  if (idx === -1) {
+    db.appendRow(TAB_RECORDS, row);
+  } else {
+    rows[idx] = row;
+    db.setRows(TAB_RECORDS, rows);
+  }
+}
+
+// replaceDetails_(db, key, details) → 抽查明細先刪該 key 全部列再寫入新列
+function replaceDetails_(db, key, details) {
+  var rows = db.getRows(TAB_DETAILS);
+  var header = rows.length ? rows[0] :
+    ['record_key', '店代碼', '年月', '品項', '單位', '盤點數', '複盤數', '判定', '異常原因', '備註'];
+  var kept = rows.slice(1).filter(function (r) { return r && r[0] !== key; });
+  var newRows = (details || []).map(detailToRow_);
+  db.setRows(TAB_DETAILS, [header].concat(kept, newRows));
+}
+
+// monthRow_(month) → 'YYYY-MM' 對應的顯示分頁列號（月列=2–13，row = 月份數字 + 1）
+function monthRow_(month) {
+  var mm = Number(String(month).split('-')[1]);
+  return mm + 1;
+}
+
+// tipMatchDisplay_(value) → 顯示分頁沿用既有「正確」用語（資料分頁保持 相符/不相符，spec.md §2.1）
+function tipMatchDisplay_(value) {
+  if (value === '相符') return '正確';
+  if (value === '不相符') return '不正確';
+  return value;
+}
+
+// writeDisplayTabAudited_(db, record) → 已稽核回寫：B–I 全寫，D 一律公式 =C{row}/B{row}
+function writeDisplayTabAudited_(db, record) {
+  var store = storeByCode_(record.store);
+  if (!store) return;
+  var tab = store.tab;
+  var row = monthRow_(record.month);
+  db.setCell(tab, DISPLAY_COLS.sample_count + row, record.sample_count);
+  db.setCell(tab, DISPLAY_COLS.correct_count + row, record.correct_count);
+  db.setCell(tab, DISPLAY_COLS.correct_rate + row, '=C' + row + '/B' + row);
+  db.setCell(tab, DISPLAY_COLS.cash_change_correct + row, record.change_fund);
+  db.setCell(tab, DISPLAY_COLS.petty_cash_correct + row, record.petty_cash);
+  db.setCell(tab, DISPLAY_COLS.tip_correct + row, tipMatchDisplay_(record.tip_match));
+  db.setCell(tab, DISPLAY_COLS.tip_amount + row, record.tip_amount);
+  db.setCell(tab, DISPLAY_COLS.anomaly_note + row, record.anomaly_text);
+}
+
+// writeDisplayTabRest_(db, store, month) → 輪休回寫：C=輪休，D–I 清空，B 保留原值
+function writeDisplayTabRest_(db, storeCode, month) {
+  var store = storeByCode_(storeCode);
+  if (!store) return;
+  var tab = store.tab;
+  var row = monthRow_(month);
+  db.setCell(tab, DISPLAY_COLS.correct_count + row, '輪休');
+  db.setCell(tab, DISPLAY_COLS.correct_rate + row, '');
+  db.setCell(tab, DISPLAY_COLS.cash_change_correct + row, '');
+  db.setCell(tab, DISPLAY_COLS.petty_cash_correct + row, '');
+  db.setCell(tab, DISPLAY_COLS.tip_correct + row, '');
+  db.setCell(tab, DISPLAY_COLS.tip_amount + row, '');
+  db.setCell(tab, DISPLAY_COLS.anomaly_note + row, '');
 }
 
 // ── db adapter：唯一允許呼叫 SpreadsheetApp 的地方 ──────────────────
