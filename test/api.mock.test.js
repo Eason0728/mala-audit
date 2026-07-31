@@ -34,12 +34,14 @@ async function main() {
   assertEqual(acc.ok, true, 'auth 會計碼 ok');
   assertEqual(acc.role, 'accountant', 'auth 會計碼角色 accountant');
 
+  // 不需通行碼（Eason 2026-08-01 指定）：任何碼、甚至空字串一律 accountant
   var view = await Api.auth('5678');
-  assertEqual(view.ok, true, 'auth 主管碼 ok');
-  assertEqual(view.role, 'viewer', 'auth 主管碼角色 viewer');
+  assertEqual(view.ok, true, 'auth 任意碼 ok');
+  assertEqual(view.role, 'accountant', 'auth 任意碼角色 accountant（不需通行碼）');
 
-  var bad = await Api.auth('0000');
-  assertEqual(bad.ok, false, 'auth 錯碼 ok:false');
+  var blank = await Api.auth('');
+  assertEqual(blank.ok, true, 'auth 空字串 ok');
+  assertEqual(blank.role, 'accountant', 'auth 空字串角色 accountant');
 
   // --- getAll 形狀 ---
   var all = await Api.getAll('1234');
@@ -49,8 +51,8 @@ async function main() {
   assertTrue(Array.isArray(all.records), 'getAll 含 records 陣列');
   assertTrue(Array.isArray(all.details), 'getAll 含 details 陣列');
 
-  var badAll = await Api.getAll('0000');
-  assertEqual(badAll.ok, false, 'getAll 錯碼 ok:false');
+  var blankAll = await Api.getAll('');
+  assertEqual(blankAll.ok, true, 'getAll 空字串碼仍 ok:true（不需通行碼）');
 
   var storeCodes = ['sxl-gf', 'ck', 'mzt-gf', 'mzt-js', 'mzt-lzl'];
   storeCodes.forEach(function (code) {
@@ -115,9 +117,9 @@ async function main() {
   assertEqual(detailsForKey.length, 1, 'details 舊列消失新列存在（僅剩新列 1 筆）');
   assertEqual(detailsForKey.length ? detailsForKey[0].item : null, '測試品項', 'details 新列內容正確');
 
-  // viewer 碼不可 submitAudit
-  var subByViewer = await Api.submitAudit('5678', newRecord, []);
-  assertEqual(subByViewer.ok, false, 'submitAudit 主管碼 ok:false（無權限）');
+  // 不需通行碼：不帶碼也能送出
+  var subNoCode = await Api.submitAudit('', newRecord, []);
+  assertEqual(subNoCode.ok, true, 'submitAudit 空字串碼成功（不需通行碼）');
 
   // --- markRest('ck','2026-08') ---
   var restRes = await Api.markRest('1234', 'ck', '2026-08');

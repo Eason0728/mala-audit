@@ -69,12 +69,28 @@ var gas = runner.loadGas();
 // ============================================================
 // auth 三情境
 // ============================================================
+// 現行設定 REQUIRE_PASSCODE=false（Eason 2026-08-01 指定不需要通行碼）：
+// 不論帶什麼碼、甚至不帶碼，一律是 accountant（可填寫）。
 (function () {
   var db = freshDb();
-  assertEqual(gas.handleAuth({ code: '1234' }, db), { ok: true, role: 'accountant' }, 'auth 會計碼 → accountant');
-  assertEqual(gas.handleAuth({ code: '5678' }, db), { ok: true, role: 'viewer' }, 'auth 主管碼 → viewer');
-  assertEqual(gas.handleAuth({ code: '9999' }, db), { ok: false, error: '通行碼錯誤' }, 'auth 錯碼 → ok:false');
-  assertEqual(gas.handleAuth({}, db), { ok: false, error: '通行碼錯誤' }, 'auth 缺 code → ok:false');
+  assertTrue(gas.REQUIRE_PASSCODE === false, 'Code.gs 目前設定為不需要通行碼');
+  assertEqual(gas.handleAuth({ code: '1234' }, db), { ok: true, role: 'accountant' }, 'auth 帶任意碼 → accountant');
+  assertEqual(gas.handleAuth({}, db), { ok: true, role: 'accountant' }, 'auth 不帶碼 → accountant');
+  assertEqual(gas.handleAuth({ code: '' }, db), { ok: true, role: 'accountant' }, 'auth 空字串碼 → accountant');
+})();
+
+// 開關切回 true 時，原本的通行碼機制仍然可用（驗證這條後路是真的，不是只寫在註解裡）
+(function () {
+  var g = runner.loadGas();      // 全新 sandbox，避免污染其他測試
+  var db = freshDb();
+  g.REQUIRE_PASSCODE = true;
+  assertEqual(g.handleAuth({ code: '1234' }, db), { ok: true, role: 'accountant' }, '開關開啟：會計碼 → accountant');
+  assertEqual(g.handleAuth({ code: '5678' }, db), { ok: true, role: 'viewer' }, '開關開啟：主管碼 → viewer');
+  assertEqual(g.handleAuth({ code: '9999' }, db), { ok: false, error: '通行碼錯誤' }, '開關開啟：錯碼 → ok:false');
+  assertEqual(g.handleAuth({}, db), { ok: false, error: '通行碼錯誤' }, '開關開啟：缺 code → ok:false');
+  assertEqual(g.handleGetAll({ code: 'bad' }, db), { ok: false, error: '通行碼錯誤' }, '開關開啟：getAll 錯碼擋下');
+  var viewerRes = g.handleGetAll({ code: '5678' }, db);
+  assertEqual(viewerRes.config.accountant_ok, false, '開關開啟：主管碼 accountant_ok:false');
 })();
 
 // ============================================================
@@ -128,15 +144,12 @@ var gas = runner.loadGas();
   assertTrue(serialized.indexOf('5678') === -1, 'getAll 回傳不含主管通行碼字串');
 })();
 
-// getAll：主管碼 → accountant_ok:false；錯碼／缺碼 → ok:false
+// getAll：不需通行碼設定下，帶什麼碼都通、且一律具備會計權限
 (function () {
   var db = freshDb();
-  var viewerRes = gas.handleGetAll({ code: '5678' }, db);
-  assertTrue(viewerRes.ok === true, 'getAll 主管碼 ok:true');
-  assertEqual(viewerRes.config.accountant_ok, false, 'getAll 主管碼 accountant_ok:false');
-
-  assertEqual(gas.handleGetAll({ code: 'bad' }, db), { ok: false, error: '通行碼錯誤' }, 'getAll 錯碼 → ok:false');
-  assertEqual(gas.handleGetAll({}, db), { ok: false, error: '通行碼錯誤' }, 'getAll 缺 code → ok:false');
+  assertTrue(gas.handleGetAll({ code: 'bad' }, db).ok === true, 'getAll 任意碼仍 ok:true（不需通行碼）');
+  assertTrue(gas.handleGetAll({}, db).ok === true, 'getAll 不帶碼仍 ok:true');
+  assertEqual(gas.handleGetAll({}, db).config.accountant_ok, true, 'getAll 不帶碼 accountant_ok:true');
 })();
 
 // ============================================================

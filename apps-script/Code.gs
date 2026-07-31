@@ -41,6 +41,9 @@ var DISPLAY_COLS = {
   tip_amount: 'H', anomaly_note: 'I'
 };
 
+// ---- 通行碼開關（見 resolveRole_；與 js/config.js 的 REQUIRE_PASSCODE 必須一致）----
+var REQUIRE_PASSCODE = false;
+
 // ---- 枚舉（spec.md §5，逐字元，禁止同義詞）----
 var STATUS_VALUES = ['已稽核', '輪休'];
 var CASH_VALUES = ['正確', '不正確'];
@@ -189,6 +192,10 @@ function handleMarkRest(payload, db) {
 
 // resolveRole_(code, db) → 'accountant' | 'viewer' | null（不合法一律 null，不洩漏通行碼比對細節）
 function resolveRole_(code, db) {
+  // Eason 2026-08-01 指定「不需要通行碼」：任何人開網址即可使用（含填寫）。
+  // 要恢復登入時：本常數與 js/config.js 的 REQUIRE_PASSCODE 一起改 true，
+  // 再到「設定」分頁填會計／主管通行碼。
+  if (!REQUIRE_PASSCODE) return 'accountant';
   if (!code) return null;
   var settings = readSettings_(db);
   if (settings.accountantCode && code === settings.accountantCode) return 'accountant';

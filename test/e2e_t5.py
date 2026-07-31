@@ -26,10 +26,8 @@ def check(cond, label):
 
 def login_and_open_audit(page, store='sxl-gf', month='2026-08'):
     """登入（會計碼 1234）→ 稽核頁 → 選店選月。"""
-    page.wait_for_selector('#login-code', timeout=5000)
-    page.fill('#login-code', '1234')
-    page.click('#login-submit')
-    page.wait_for_selector('#main-nav:not([hidden])', timeout=5000)
+    # 不需通行碼：開頁即自動載入，等 nav 出現即可
+    page.wait_for_selector('#main-nav:not([hidden])', timeout=8000)
     page.evaluate("window.App.navigate('audit')")
     page.wait_for_selector('#audit-draw', timeout=5000)
     page.select_option('#audit-store', store)

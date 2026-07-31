@@ -59,10 +59,7 @@ def main():
         page.goto(BASE_URL)
 
         # ---- 登入（會計碼 1234）----
-        page.wait_for_selector('#login-code', timeout=5000)
-        page.fill('#login-code', '1234')
-        page.click('#login-submit')
-        page.wait_for_selector('#main-nav:not([hidden])', timeout=5000)
+        page.wait_for_selector('#main-nav:not([hidden])', timeout=8000)
         check(True, '登入成功，nav 顯示')
 
         # ---- navigate('audit')（app.js 已由 T3 完成，非 harness；window.App 是 app 實例）----

@@ -52,7 +52,9 @@
     // ---- 重新 Api.getAll(app.state.code) 更新 data 後 re-render 目前 tab ----
     reload: function () {
       var self = this;
-      if (!self.state.code) {
+      // 判「還沒載入」要看 role 不能看 code：免通行碼時 code 是空字串，
+      // 用 !code 會讓 reload 永遠短路，送出後畫面拿不到新資料。
+      if (!self.state.role) {
         return Promise.resolve({ ok: false });
       }
       return root.Api.getAll(self.state.code).then(function (res) {
@@ -123,14 +125,20 @@
       }
     },
 
-    // ---- 初始化：顯示登入畫面，綁定 nav 點擊 ----
+    // ---- 初始化：不需通行碼（Eason 2026-08-01 指定），開頁即直接載入總覽 ----
+    // 之後若要恢復登入：Config.REQUIRE_PASSCODE 改 true（後端 Code.gs 同名常數也要改），
+    // 本函式會改走 Views.login 的登入畫面。
     init: function () {
       this.bindNav();
-      var loginEl = document.getElementById(VIEW_IDS.login);
-      var loginView = root.Views && root.Views.login;
-      if (loginEl && loginView && typeof loginView.render === 'function') {
-        loginView.render(loginEl, this);
+      if (root.Config && root.Config.REQUIRE_PASSCODE) {
+        var loginEl = document.getElementById(VIEW_IDS.login);
+        var loginView = root.Views && root.Views.login;
+        if (loginEl && loginView && typeof loginView.render === 'function') {
+          loginView.render(loginEl, this);
+        }
+        return;
       }
+      return this.login('');
     }
   };
 

@@ -4,7 +4,7 @@
 # 前半：異常分析三張表（數值以 node 從 mock 資料實算為準：異常 27 筆、
 #       各店 sxl-gf 12／mzt-js 5／mzt-gf 5／mzt-lzl 5／ck 0、
 #       累犯前三＝鴨血/米血/打拋醬 各 2 次、原因全為「未分類」）＋區間篩選。
-# 後半：Phase 1 全流程走查（登入→總覽→稽核送出→報告→分析→列印樣式），console 必須無 error。
+# 後半：Phase 1 全流程走查（開頁→總覽→稽核送出→報告→分析→列印樣式），console 必須無 error。
 import http.server
 import socketserver
 import sys
@@ -26,11 +26,9 @@ def check(cond, label):
         failures.append(label)
 
 
-def login(page, code='1234'):
-    page.wait_for_selector('#login-code', timeout=5000)
-    page.fill('#login-code', code)
-    page.click('#login-submit')
-    page.wait_for_selector('#main-nav:not([hidden])', timeout=5000)
+def open_app(page):
+    """不需通行碼：開頁即自動載入，等 nav 出現即可。"""
+    page.wait_for_selector('#main-nav:not([hidden])', timeout=8000)
 
 
 def table_rows(page, container_sel):
@@ -65,8 +63,8 @@ def main():
         page.on('pageerror', lambda exc: page_errors.append(str(exc)))
         page.goto(BASE_URL)
 
-        # ============ 異常分析（會計登入）============
-        login(page, '1234')
+        # ============ 異常分析 ============
+        open_app(page)
         page.evaluate("window.App.navigate('analysis')")
         page.wait_for_selector('#an-repeat table', timeout=5000)
 
@@ -187,15 +185,15 @@ def main():
         check(nav_display == 'none', '列印模式 nav 隱藏（實際 %s）' % nav_display)
         page.emulate_media(media='screen')
 
-        # 主管唯讀
+        # 免登入：重新開頁仍直接可用（不需通行碼）
         page.reload()
-        login(page, '5678')
+        open_app(page)
         page.wait_for_timeout(250)
         ov2 = page.inner_text('#view-overview')
-        check('開始稽核' not in ov2, '主管碼登入看不到「開始稽核」')
+        check('開始稽核' in ov2, '重新開頁仍看得到「開始稽核」（免登入、全員可填寫）')
         page.evaluate("window.App.navigate('analysis')")
         page.wait_for_selector('#an-repeat table', timeout=5000)
-        check(len(table_rows(page, '#an-repeat')) > 0, '主管也看得到異常分析')
+        check(len(table_rows(page, '#an-repeat')) > 0, '重新開頁仍看得到異常分析')
 
         check(not console_errors and not page_errors,
               '全程 console 無 error（console=%d, page=%d）' % (len(console_errors), len(page_errors)))

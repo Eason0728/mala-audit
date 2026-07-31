@@ -60,10 +60,21 @@
     return (typeof root !== 'undefined' && root.Config && root.Config.GAS_URL) || '';
   }
 
+  // 通行碼開關與後端 Code.gs 的 REQUIRE_PASSCODE 對齊（見 js/config.js）。
+  // 關閉時任何人皆為會計（可填寫），mock 與 cloud 行為一致。
+  function requirePasscode() {
+    return !!(typeof root !== 'undefined' && root.Config && root.Config.REQUIRE_PASSCODE);
+  }
+
   function checkCode(code) {
+    if (!requirePasscode()) return 'accountant';
     if (code === MockData.passcodes.accountant) return 'accountant';
     if (code === MockData.passcodes.viewer) return 'viewer';
     return null;
+  }
+
+  function canWrite(code) {
+    return checkCode(code) === 'accountant';
   }
 
   // ---- mock 實作 ----
@@ -107,7 +118,7 @@
   }
 
   function mockSubmitAudit(code, record, details) {
-    if (code !== MockData.passcodes.accountant) return { ok: false };
+    if (!canWrite(code)) return { ok: false };
     var overlay = loadOverlay();
     var key = (record && record.record_key) || Format.recordKey(record.store, record.month);
     record.record_key = key;
@@ -121,7 +132,7 @@
   }
 
   function mockMarkRest(code, store, month) {
-    if (code !== MockData.passcodes.accountant) return { ok: false };
+    if (!canWrite(code)) return { ok: false };
     var overlay = loadOverlay();
     var key = Format.recordKey(store, month);
     var day = month + '-05';

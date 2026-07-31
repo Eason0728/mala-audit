@@ -63,22 +63,20 @@ def main():
             page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
             page.on("pageerror", lambda exc: console_errors.append(str(exc)))
 
-            # ---- (1) 主管碼 5678 登入 ----
+            # ---- (1) 不需通行碼：開頁即自動載入總覽，不出現登入畫面 ----
             page.goto(BASE_URL)
-            page.fill("#login-code", "5678")
-            page.click("#login-submit")
-            page.wait_for_selector("#main-nav:not([hidden])", timeout=5000)
-            check(page.is_visible("#main-nav"), "(1) 主管碼登入成功、nav 出現")
+            page.wait_for_selector("#main-nav:not([hidden])", timeout=8000)
+            check(page.is_visible("#main-nav"), "(1) 開頁即載入、nav 出現（免登入）")
             check(page.is_visible("#view-overview"), "(1) 總覽渲染 (view-overview 可見)")
-            check(page.query_selector("#btn-start-audit") is None, "(1) 主管登入找不到「開始稽核」按鈕")
+            check(not page.is_visible("#view-login"), "(1) 登入畫面不顯示")
+            check(page.query_selector("#login-code") is None or not page.is_visible("#login-code"),
+                  "(1) 沒有要求輸入通行碼")
 
-            # ---- (2) 重載後輸入 1234 ----
-            page.goto(BASE_URL)
-            page.fill("#login-code", "1234")
-            page.click("#login-submit")
-            page.wait_for_selector("#main-nav:not([hidden])", timeout=5000)
-            check(page.query_selector("#btn-start-audit") is not None, "(2) 會計登入「開始稽核」存在")
-            check(page.query_selector("#btn-mark-rest") is not None, "(2) 會計登入「標記輪休」存在")
+            # ---- (2) 所有人都是會計權限（可填寫）----
+            check(page.query_selector("#btn-start-audit") is not None, "(2)「開始稽核」按鈕存在")
+            check(page.query_selector("#btn-mark-rest") is not None, "(2)「標記輪休」按鈕存在")
+            check(page.evaluate("window.App.state.role") == "accountant",
+                  "(2) 角色為 accountant（實際 %s）" % page.evaluate("window.App.state.role"))
 
             # ---- (3) 總覽格 ----
             cell_sxl_jan = page.query_selector('.grid-cell[data-store="sxl-gf"][data-month="2026-01"]')
