@@ -50,6 +50,20 @@ var CASH_VALUES = ['正確', '不正確'];
 var TIP_MATCH_VALUES = ['相符', '不相符'];
 var VERDICT_VALUES = ['正確', '異常'];
 
+// ── 一次性初始化（放在 Code.gs 最上方，因為編輯器預設開這個檔、
+//    函式下拉只列出目前檔案的函式；setup／importHistory 本體在 Import.gs）──
+// 由 Eason 在 Apps Script 編輯器手動執行一次：完成帳號授權 ＋ 建資料分頁 ＋ 匯入 1–7 月歷史。
+// 兩個步驟都可重複執行（冪等），跑第二次不會重複寫入。
+function 初始化稽核系統() {
+  var a = setup();
+  var b = importHistory();
+  var msg = '初始化完成｜遷移分頁 ' + (a.migrated_tabs || []).join('、') +
+    '｜匯入紀錄 ' + b.records + ' 筆、明細 ' + b.details + ' 筆、補品項 ' + b.items_added +
+    ' 筆、解析失敗 ' + (b.fallback || []).length + ' 行';
+  Logger.log(msg);
+  return msg;
+}
+
 // ── doPost 入口 ──────────────────────────────────────────────────────
 function doPost(e) {
   var payload;
