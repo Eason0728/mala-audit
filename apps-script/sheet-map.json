@@ -1,0 +1,504 @@
+{
+  "tabs": {
+    "小辛辣光復店": {
+      "store": "sxl-gf",
+      "header_row": 1,
+      "month_rows": {
+        "1": 2,
+        "2": 3,
+        "3": 4,
+        "4": 5,
+        "5": 6,
+        "6": 7,
+        "7": 8,
+        "8": 9,
+        "9": 10,
+        "10": 11,
+        "11": 12,
+        "12": 13
+      },
+      "cols": {
+        "month": "A",
+        "sample_count": "B",
+        "correct_count": "C",
+        "correct_rate": "D",
+        "cash_change_correct": "E",
+        "petty_cash_correct": "F",
+        "tip_correct": "G",
+        "tip_amount": "H",
+        "anomaly_note": "I"
+      }
+    },
+    "央廚": {
+      "store": "ck",
+      "header_row": 1,
+      "month_rows": {
+        "1": 2,
+        "2": 3,
+        "3": 4,
+        "4": 5,
+        "5": 6,
+        "6": 7,
+        "7": 8,
+        "8": 9,
+        "9": 10,
+        "10": 11,
+        "11": 12,
+        "12": 13
+      },
+      "cols": {
+        "month": "A",
+        "sample_count": "B",
+        "correct_count": "C",
+        "correct_rate": "D",
+        "anomaly_note": "E"
+      }
+    },
+    "光復店": {
+      "store": "mzt-gf",
+      "header_row": 1,
+      "month_rows": {
+        "1": 2,
+        "2": 3,
+        "3": 4,
+        "4": 5,
+        "5": 6,
+        "6": 7,
+        "7": 8,
+        "8": 9,
+        "9": 10,
+        "10": 11,
+        "11": 12,
+        "12": 13
+      },
+      "cols": {
+        "month": "A",
+        "sample_count": "B",
+        "correct_count": "C",
+        "correct_rate": "D",
+        "anomaly_note": "E"
+      }
+    },
+    "金山店": {
+      "store": "mzt-js",
+      "header_row": 1,
+      "month_rows": {
+        "1": 2,
+        "2": 3,
+        "3": 4,
+        "4": 5,
+        "5": 6,
+        "6": 7,
+        "7": 8,
+        "8": 9,
+        "9": 10,
+        "10": 11,
+        "11": 12,
+        "12": 13
+      },
+      "cols": {
+        "month": "A",
+        "sample_count": "B",
+        "correct_count": "C",
+        "correct_rate": "D",
+        "anomaly_note": "E"
+      }
+    },
+    "六張犁店": {
+      "store": "mzt-lzl",
+      "header_row": 1,
+      "month_rows": {
+        "1": 2,
+        "2": 3,
+        "3": 4,
+        "4": 5,
+        "5": 6,
+        "6": 7,
+        "7": 8,
+        "8": 9,
+        "9": 10,
+        "10": 11,
+        "11": 12,
+        "12": 13
+      },
+      "cols": {
+        "month": "A",
+        "sample_count": "B",
+        "correct_count": "C",
+        "correct_rate": "D",
+        "anomaly_note": "E"
+      }
+    }
+  },
+  "rate_is_formula": true,
+  "rate_is_formula_detail": {
+    "formula_pattern": "=C{row}/B{row}（複盤正確數量 / 盤點抽查數量），第一個有資料的月列是明式公式，其餘月列是 Excel shared formula 沿用同一相對位置公式",
+    "per_tab_all_formula": {
+      "小辛辣光復店": true,
+      "央廚": true,
+      "光復店": true,
+      "金山店": true,
+      "六張犁店": true
+    },
+    "empty_when_rest_month": true,
+    "sample_formulas": [
+      {
+        "tab": "小辛辣光復店",
+        "month": 1,
+        "row": 2,
+        "formula": "C2/B2",
+        "is_shared_formula": true,
+        "computed_value": "0.8"
+      },
+      {
+        "tab": "小辛辣光復店",
+        "month": 2,
+        "row": 3,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0.9"
+      },
+      {
+        "tab": "小辛辣光復店",
+        "month": 3,
+        "row": 4,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "1"
+      },
+      {
+        "tab": "小辛辣光復店",
+        "month": 4,
+        "row": 5,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0.95"
+      },
+      {
+        "tab": "小辛辣光復店",
+        "month": 5,
+        "row": 6,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0.85"
+      },
+      {
+        "tab": "小辛辣光復店",
+        "month": 6,
+        "row": 7,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0.95"
+      },
+      {
+        "tab": "小辛辣光復店",
+        "month": 7,
+        "row": 8,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0.95"
+      },
+      {
+        "tab": "小辛辣光復店",
+        "month": 8,
+        "row": 9,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "小辛辣光復店",
+        "month": 9,
+        "row": 10,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "小辛辣光復店",
+        "month": 10,
+        "row": 11,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "小辛辣光復店",
+        "month": 11,
+        "row": 12,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "小辛辣光復店",
+        "month": 12,
+        "row": 13,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "央廚",
+        "month": 1,
+        "row": 2,
+        "formula": "C2/B2",
+        "is_shared_formula": true,
+        "computed_value": "1"
+      },
+      {
+        "tab": "央廚",
+        "month": 2,
+        "row": 3,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "1"
+      },
+      {
+        "tab": "央廚",
+        "month": 3,
+        "row": 4,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "1"
+      },
+      {
+        "tab": "央廚",
+        "month": 8,
+        "row": 9,
+        "formula": "C9/B9",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "央廚",
+        "month": 9,
+        "row": 10,
+        "formula": "<shared, si=2>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "央廚",
+        "month": 10,
+        "row": 11,
+        "formula": "<shared, si=2>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "央廚",
+        "month": 11,
+        "row": 12,
+        "formula": "<shared, si=2>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "央廚",
+        "month": 12,
+        "row": 13,
+        "formula": "<shared, si=2>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "光復店",
+        "month": 1,
+        "row": 2,
+        "formula": "C2/B2",
+        "is_shared_formula": false,
+        "computed_value": "1"
+      },
+      {
+        "tab": "光復店",
+        "month": 3,
+        "row": 4,
+        "formula": "C4/B4",
+        "is_shared_formula": false,
+        "computed_value": "0.8"
+      },
+      {
+        "tab": "光復店",
+        "month": 5,
+        "row": 6,
+        "formula": "C6/B6",
+        "is_shared_formula": false,
+        "computed_value": "0.95"
+      },
+      {
+        "tab": "光復店",
+        "month": 8,
+        "row": 9,
+        "formula": "C9/B9",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "光復店",
+        "month": 9,
+        "row": 10,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "光復店",
+        "month": 10,
+        "row": 11,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "光復店",
+        "month": 11,
+        "row": 12,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "光復店",
+        "month": 12,
+        "row": 13,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "金山店",
+        "month": 2,
+        "row": 3,
+        "formula": "C3/B3",
+        "is_shared_formula": false,
+        "computed_value": "0.9"
+      },
+      {
+        "tab": "金山店",
+        "month": 7,
+        "row": 8,
+        "formula": "C8/B8",
+        "is_shared_formula": true,
+        "computed_value": "0.85"
+      },
+      {
+        "tab": "金山店",
+        "month": 8,
+        "row": 9,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "金山店",
+        "month": 9,
+        "row": 10,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "金山店",
+        "month": 10,
+        "row": 11,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "金山店",
+        "month": 11,
+        "row": 12,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "金山店",
+        "month": 12,
+        "row": 13,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "六張犁店",
+        "month": 2,
+        "row": 3,
+        "formula": "C3/B3",
+        "is_shared_formula": false,
+        "computed_value": "0.9"
+      },
+      {
+        "tab": "六張犁店",
+        "month": 6,
+        "row": 7,
+        "formula": "C7/B7",
+        "is_shared_formula": true,
+        "computed_value": "0.85"
+      },
+      {
+        "tab": "六張犁店",
+        "month": 7,
+        "row": 8,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "六張犁店",
+        "month": 8,
+        "row": 9,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "六張犁店",
+        "month": 9,
+        "row": 10,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "六張犁店",
+        "month": 10,
+        "row": 11,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "六張犁店",
+        "month": 11,
+        "row": 12,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      },
+      {
+        "tab": "六張犁店",
+        "month": 12,
+        "row": 13,
+        "formula": "<shared, si=1>",
+        "is_shared_formula": true,
+        "computed_value": "0"
+      }
+    ]
+  },
+  "notes": [
+    "reference/sheet-tab1.csv 第 9 行（對應第 8 個月列）月份欄寫的是「六月」，但 xlsx 小辛辣光復店分頁同一列（第 9 列）月份欄是「八月」——CSV 與 xlsx 不一致，以 xlsx 為準（CSV 視為匯出雜訊）。",
+    "金山店 分頁儲存格 D15 是資料表範圍外的游離內容：「金山店」，不屬於任何月份列，疑似誤貼/殘留。",
+    "央廚 分頁目前只有 A, B, C, D, E 共 5 欄（month, sample_count, correct_count, correct_rate, anomaly_note），沒有零找金/零用金/小費是否正確/小費金額四欄——需依 spec.md §2.1 由 setup() 腳本補上（欄序、標題比照小辛辣光復店分頁）。",
+    "光復店 分頁目前只有 A, B, C, D, E 共 5 欄（month, sample_count, correct_count, correct_rate, anomaly_note），沒有零找金/零用金/小費是否正確/小費金額四欄——需依 spec.md §2.1 由 setup() 腳本補上（欄序、標題比照小辛辣光復店分頁）。",
+    "金山店 分頁目前只有 A, B, C, D, E 共 5 欄（month, sample_count, correct_count, correct_rate, anomaly_note），沒有零找金/零用金/小費是否正確/小費金額四欄——需依 spec.md §2.1 由 setup() 腳本補上（欄序、標題比照小辛辣光復店分頁）。",
+    "六張犁店 分頁目前只有 A, B, C, D, E 共 5 欄（month, sample_count, correct_count, correct_rate, anomaly_note），沒有零找金/零用金/小費是否正確/小費金額四欄——需依 spec.md §2.1 由 setup() 腳本補上（欄序、標題比照小辛辣光復店分頁）。",
+    "央廚 正確率(correct_rate)欄在第 [4, 5, 6, 7] 個月列是完全空白（通常對應「輪休」月份或尚未輸入複盤正確數量），不是公式也不是 0——與『已稽核但算出 0%』的公式結果不同，回寫/匯入邏輯需分開處理。",
+    "光復店 正確率(correct_rate)欄在第 [2, 4, 6, 7] 個月列是完全空白（通常對應「輪休」月份或尚未輸入複盤正確數量），不是公式也不是 0——與『已稽核但算出 0%』的公式結果不同，回寫/匯入邏輯需分開處理。",
+    "金山店 正確率(correct_rate)欄在第 [1, 3, 4, 5, 6] 個月列是完全空白（通常對應「輪休」月份或尚未輸入複盤正確數量），不是公式也不是 0——與『已稽核但算出 0%』的公式結果不同，回寫/匯入邏輯需分開處理。",
+    "六張犁店 正確率(correct_rate)欄在第 [1, 3, 4, 5] 個月列是完全空白（通常對應「輪休」月份或尚未輸入複盤正確數量），不是公式也不是 0——與『已稽核但算出 0%』的公式結果不同，回寫/匯入邏輯需分開處理。",
+    "抽查不一致：「金山店 3月 正確率=80%（任務指示的預期值）」——xlsx 實際值是「None」，不是預期的「80」。以 xlsx 實際內容為準（例如「金山店 3月」實際狀態是「輪休」，正確率 80% 的實際位置是「光復店 3月」D4=C4/B4=0.8）。"
+  ]
+}
