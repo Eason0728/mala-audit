@@ -12,19 +12,10 @@
 // ──────────────────────────────────────────────────────────────────────
 
 // ---- 顯示分頁固定座標（spec.md §2.1／§5，5 分頁一致：header_row=1、月列 2–13）----
+// DISPLAY_COLS 只在 Code.gs 宣告一次，本檔直接沿用同專案全域——不要在這裡再宣告一份，
+// 那會變成兩份各自維護的欄位表，改一邊另一邊悄悄失步，而且測試抓不到（兩檔載入同一 context）。
 var DISPLAY_HEADER_ROW = 1;
 var DISPLAY_FIRST_MONTH_ROW = 2; // 1月 → 列2 … 12月 → 列13
-var DISPLAY_COLS = {
-  month: 'A',
-  sample_count: 'B',
-  correct_count: 'C',
-  correct_rate: 'D',
-  cash_change_correct: 'E',
-  petty_cash_correct: 'F',
-  tip_correct: 'G',
-  tip_amount: 'H',
-  anomaly_note: 'I'
-};
 var MIGRATED_HEADER_MARK = '零找金是否正確'; // E1 已是這個字串 → 該分頁已遷移過，跳過
 
 // ---- 新增分頁欄位（spec.md §2.2，逐字元對齊既有測試種子）----
