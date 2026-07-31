@@ -4,3 +4,5 @@ node_modules/
 test/t7-analysis.png
 test/t6-print-preview.png
 test/shots/
+apps-script/Admin.gs
+.clasp.json
