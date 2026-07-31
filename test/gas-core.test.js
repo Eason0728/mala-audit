@@ -69,28 +69,41 @@ var gas = runner.loadGas();
 // ============================================================
 // auth 三情境
 // ============================================================
-// 現行設定 REQUIRE_PASSCODE=false（Eason 2026-08-01 指定不需要通行碼）：
-// 不論帶什麼碼、甚至不帶碼，一律是 accountant（可填寫）。
+// 現行設定 REQUIRE_PASSCODE=true（Eason 2026-08-01 指示上鎖）：
+// 通行碼讀自「設定」分頁（測試種子＝會計 1234／主管 5678；正式密碼在真試算表，不進 repo）。
 (function () {
   var db = freshDb();
-  assertTrue(gas.REQUIRE_PASSCODE === false, 'Code.gs 目前設定為不需要通行碼');
-  assertEqual(gas.handleAuth({ code: '1234' }, db), { ok: true, role: 'accountant' }, 'auth 帶任意碼 → accountant');
-  assertEqual(gas.handleAuth({}, db), { ok: true, role: 'accountant' }, 'auth 不帶碼 → accountant');
-  assertEqual(gas.handleAuth({ code: '' }, db), { ok: true, role: 'accountant' }, 'auth 空字串碼 → accountant');
+  assertTrue(gas.REQUIRE_PASSCODE === true, 'Code.gs 目前設定為需要通行碼');
+  assertEqual(gas.handleAuth({ code: '1234' }, db), { ok: true, role: 'accountant' }, 'auth 會計碼 → accountant');
+  assertEqual(gas.handleAuth({ code: '5678' }, db), { ok: true, role: 'viewer' }, 'auth 主管碼 → viewer');
+  assertEqual(gas.handleAuth({ code: '9999' }, db), { ok: false, error: '通行碼錯誤' }, 'auth 錯碼 → ok:false');
+  assertEqual(gas.handleAuth({}, db), { ok: false, error: '通行碼錯誤' }, 'auth 缺 code → ok:false');
+  assertEqual(gas.handleAuth({ code: '' }, db), { ok: false, error: '通行碼錯誤' }, 'auth 空字串 → ok:false');
 })();
 
-// 開關切回 true 時，原本的通行碼機制仍然可用（驗證這條後路是真的，不是只寫在註解裡）
+// 主管通行碼留空時該角色停用（正式環境就是這個設定：單一密碼、全權限）
+(function () {
+  var g = runner.loadGas();
+  var db = runner.makeMemoryDb({
+    '設定': [['會計通行碼', '83570000'], ['主管通行碼', ''],
+             ['零找金標準', 10000], ['零用金標準', 10000],
+             ['異常原因分類', '盤點錯誤（門市盤錯）／損耗未記／單位混淆／進出貨未入帳／其他']],
+    '品項庫': [['店代碼', '品項', '單位', '狀態']],
+    '稽核紀錄': [['record_key', '店代碼', '年月', '狀態', '稽核日期', '抽查數量', '正確數量', '正確率',
+                  '零找金', '零用金', '小費金額', '小費相符', '異常說明', '備註', '提交時間']],
+    '抽查明細': [['record_key', '店代碼', '年月', '品項', '單位', '盤點數', '複盤數', '判定', '異常原因', '備註']]
+  });
+  assertEqual(g.handleAuth({ code: '83570000' }, db).role, 'accountant', '主管碼留空：會計碼仍可登入');
+  assertEqual(g.handleAuth({ code: '' }, db), { ok: false, error: '通行碼錯誤' }, '主管碼留空：空字串不得登入');
+})();
+
+// 開關切回 false 時免登入仍可用（保留這條後路，並確保它是真的可用）
 (function () {
   var g = runner.loadGas();      // 全新 sandbox，避免污染其他測試
   var db = freshDb();
-  g.REQUIRE_PASSCODE = true;
-  assertEqual(g.handleAuth({ code: '1234' }, db), { ok: true, role: 'accountant' }, '開關開啟：會計碼 → accountant');
-  assertEqual(g.handleAuth({ code: '5678' }, db), { ok: true, role: 'viewer' }, '開關開啟：主管碼 → viewer');
-  assertEqual(g.handleAuth({ code: '9999' }, db), { ok: false, error: '通行碼錯誤' }, '開關開啟：錯碼 → ok:false');
-  assertEqual(g.handleAuth({}, db), { ok: false, error: '通行碼錯誤' }, '開關開啟：缺 code → ok:false');
-  assertEqual(g.handleGetAll({ code: 'bad' }, db), { ok: false, error: '通行碼錯誤' }, '開關開啟：getAll 錯碼擋下');
-  var viewerRes = g.handleGetAll({ code: '5678' }, db);
-  assertEqual(viewerRes.config.accountant_ok, false, '開關開啟：主管碼 accountant_ok:false');
+  g.REQUIRE_PASSCODE = false;
+  assertEqual(g.handleAuth({}, db), { ok: true, role: 'accountant' }, '開關關閉：不帶碼 → accountant');
+  assertTrue(g.handleGetAll({}, db).ok === true, '開關關閉：getAll 不帶碼仍 ok');
 })();
 
 // ============================================================
@@ -144,12 +157,14 @@ var gas = runner.loadGas();
   assertTrue(serialized.indexOf('5678') === -1, 'getAll 回傳不含主管通行碼字串');
 })();
 
-// getAll：不需通行碼設定下，帶什麼碼都通、且一律具備會計權限
+// getAll：錯碼／缺碼擋下；主管碼可讀但 accountant_ok=false
 (function () {
   var db = freshDb();
-  assertTrue(gas.handleGetAll({ code: 'bad' }, db).ok === true, 'getAll 任意碼仍 ok:true（不需通行碼）');
-  assertTrue(gas.handleGetAll({}, db).ok === true, 'getAll 不帶碼仍 ok:true');
-  assertEqual(gas.handleGetAll({}, db).config.accountant_ok, true, 'getAll 不帶碼 accountant_ok:true');
+  assertEqual(gas.handleGetAll({ code: 'bad' }, db), { ok: false, error: '通行碼錯誤' }, 'getAll 錯碼擋下');
+  assertEqual(gas.handleGetAll({}, db), { ok: false, error: '通行碼錯誤' }, 'getAll 缺碼擋下');
+  var v = gas.handleGetAll({ code: '5678' }, db);
+  assertTrue(v.ok === true, 'getAll 主管碼可讀');
+  assertEqual(v.config.accountant_ok, false, 'getAll 主管碼 accountant_ok:false');
 })();
 
 // ============================================================

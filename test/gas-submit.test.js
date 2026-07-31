@@ -202,7 +202,7 @@ function baseRecord(overrides) {
   var db = freshDb();
   var record = baseRecord({});
   var details = buildDetails20('sxl-gf_2026-08', 'sxl-gf', '2026-08');
-  gas.handleSubmitAudit({ record: record, details: details }, db);
+  gas.handleSubmitAudit({ code: '1234', record: record, details: details }, db);
   var rec = db._textCols['稽核紀錄'] || [];
   var det = db._textCols['抽查明細'] || [];
   ['A', 'C', 'E', 'O'].forEach(function (c) {
@@ -213,37 +213,36 @@ function baseRecord(overrides) {
   });
 
   var db2 = freshDb();
-  gas.handleMarkRest({ store: 'ck', month: '2026-08' }, db2);
+  gas.handleMarkRest({ code: '1234', store: 'ck', month: '2026-08' }, db2);
   assertEqual((db2._textCols['稽核紀錄'] || []).indexOf('C') !== -1, true,
     'markRest 也鎖稽核紀錄 C 欄為文字');
 })();
 
 // ============================================================
-// 4. 權限：現行設定不需通行碼 → 任何人都能送出；開關切回 true 時主管碼仍被擋
+// 4. 權限：現行設定需通行碼 → 主管碼與缺碼皆拒收；開關關閉時免登入仍可送出
 // ============================================================
 (function () {
   var db = freshDb();
   var record = baseRecord({});
   var details = buildDetails20('sxl-gf_2026-08', 'sxl-gf', '2026-08');
-  var res = gas.handleSubmitAudit({ record: record, details: details }, db);
-  assertEqual(res.ok, true, '不帶碼 submitAudit 成功（不需通行碼設定）');
-
-  var res2 = gas.handleMarkRest({ store: 'ck', month: '2026-08' }, db);
-  assertEqual(res2.ok, true, '不帶碼 markRest 成功');
+  assertEqual(gas.handleSubmitAudit({ code: '5678', record: record, details: details }, db).ok, false,
+    '主管碼 submitAudit 拒收');
+  assertEqual(gas.handleMarkRest({ code: '5678', store: 'ck', month: '2026-08' }, db).ok, false,
+    '主管碼 markRest 拒收');
+  assertEqual(gas.handleSubmitAudit({ record: record, details: details }, db).ok, false,
+    '不帶碼 submitAudit 拒收');
+  assertEqual(gas.handleSubmitAudit({ code: '1234', record: record, details: details }, db).ok, true,
+    '會計碼 submitAudit 成功');
 })();
 
 (function () {
   var g = runner.loadGas();  // 全新 sandbox
-  g.REQUIRE_PASSCODE = true;
+  g.REQUIRE_PASSCODE = false;
   var db = freshDb();
   var record = baseRecord({});
   var details = buildDetails20('sxl-gf_2026-08', 'sxl-gf', '2026-08');
-  assertEqual(g.handleSubmitAudit({ code: '5678', record: record, details: details }, db).ok, false,
-    '開關開啟：主管碼 submitAudit 拒收');
-  assertEqual(g.handleMarkRest({ code: '5678', store: 'ck', month: '2026-08' }, db).ok, false,
-    '開關開啟：主管碼 markRest 拒收');
-  assertEqual(g.handleSubmitAudit({ code: '1234', record: record, details: details }, db).ok, true,
-    '開關開啟：會計碼 submitAudit 成功');
+  assertEqual(g.handleSubmitAudit({ record: record, details: details }, db).ok, true,
+    '開關關閉：不帶碼也能送出（免登入模式）');
 })();
 
 // ============================================================

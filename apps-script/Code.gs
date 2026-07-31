@@ -42,7 +42,8 @@ var DISPLAY_COLS = {
 };
 
 // ---- 通行碼開關（見 resolveRole_；與 js/config.js 的 REQUIRE_PASSCODE 必須一致）----
-var REQUIRE_PASSCODE = false;
+// 2026-08-01 Eason 指示上鎖：通行碼存在試算表「設定」分頁，不進程式碼／repo。
+var REQUIRE_PASSCODE = true;
 
 // ---- 枚舉（spec.md §5，逐字元，禁止同義詞）----
 var STATUS_VALUES = ['已稽核', '輪休'];
@@ -217,9 +218,8 @@ function ensureTextColumns_(db) {
 }
 
 function resolveRole_(code, db) {
-  // Eason 2026-08-01 指定「不需要通行碼」：任何人開網址即可使用（含填寫）。
-  // 要恢復登入時：本常數與 js/config.js 的 REQUIRE_PASSCODE 一起改 true，
-  // 再到「設定」分頁填會計／主管通行碼。
+  // REQUIRE_PASSCODE=false 時任何人皆為會計（免登入）；目前為 true＝需通行碼。
+  // 通行碼讀自「設定」分頁；主管通行碼留空＝停用該角色（單一密碼、全權限）。
   if (!REQUIRE_PASSCODE) return 'accountant';
   if (!code) return null;
   var settings = readSettings_(db);

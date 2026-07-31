@@ -16,7 +16,7 @@ from playwright.sync_api import sync_playwright
 
 PORT = 8793
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # mala-audit/
-BASE_URL = "http://localhost:%d/index.html" % PORT
+BASE_URL = "http://localhost:%d/index.html?mode=local" % PORT  # 假資料模式：不碰真試算表
 
 failures = []
 
@@ -63,16 +63,24 @@ def main():
             page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
             page.on("pageerror", lambda exc: console_errors.append(str(exc)))
 
-            # ---- (1) 不需通行碼：開頁即自動載入總覽，不出現登入畫面 ----
+            # ---- (1) 已上鎖：先出現登入畫面；主管碼（mock 5678）只能看 ----
+            #      正式密碼存在試算表「設定」分頁，不寫進測試也不進 repo；
+            #      測試一律走 ?mode=local 用 mock 通行碼。
             page.goto(BASE_URL)
+            page.wait_for_selector("#login-code", timeout=8000)
+            check(page.is_visible("#login-code"), "(1) 開頁要求輸入通行碼（已上鎖）")
+            page.fill("#login-code", "5678")
+            page.click("#login-submit")
             page.wait_for_selector("#main-nav:not([hidden])", timeout=8000)
-            check(page.is_visible("#main-nav"), "(1) 開頁即載入、nav 出現（免登入）")
-            check(page.is_visible("#view-overview"), "(1) 總覽渲染 (view-overview 可見)")
-            check(not page.is_visible("#view-login"), "(1) 登入畫面不顯示")
-            check(page.query_selector("#login-code") is None or not page.is_visible("#login-code"),
-                  "(1) 沒有要求輸入通行碼")
+            check(page.is_visible("#view-overview"), "(1) 主管碼登入後總覽渲染")
+            check(page.query_selector("#btn-start-audit") is None, "(1) 主管碼看不到「開始稽核」")
 
-            # ---- (2) 所有人都是會計權限（可填寫）----
+            # ---- (2) 會計碼（mock 1234）可填寫 ----
+            page.goto(BASE_URL)
+            page.wait_for_selector("#login-code", timeout=8000)
+            page.fill("#login-code", "1234")
+            page.click("#login-submit")
+            page.wait_for_selector("#main-nav:not([hidden])", timeout=8000)
             check(page.query_selector("#btn-start-audit") is not None, "(2)「開始稽核」按鈕存在")
             check(page.query_selector("#btn-mark-rest") is not None, "(2)「標記輪休」按鈕存在")
             check(page.evaluate("window.App.state.role") == "accountant",

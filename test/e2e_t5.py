@@ -11,7 +11,7 @@ import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = 8795
-BASE_URL = 'http://127.0.0.1:%d/index.html' % PORT
+BASE_URL = 'http://127.0.0.1:%d/index.html?mode=local' % PORT  # 假資料模式：不碰真試算表、用 mock 通行碼
 
 failures = []
 
@@ -26,7 +26,10 @@ def check(cond, label):
 
 def login_and_open_audit(page, store='sxl-gf', month='2026-08'):
     """登入（會計碼 1234）→ 稽核頁 → 選店選月。"""
-    # 不需通行碼：開頁即自動載入，等 nav 出現即可
+    # 已上鎖：用 mock 會計碼 1234 登入（正式密碼在試算表，不進 repo）
+    page.wait_for_selector('#login-code', timeout=8000)
+    page.fill('#login-code', '1234')
+    page.click('#login-submit')
     page.wait_for_selector('#main-nav:not([hidden])', timeout=8000)
     page.evaluate("window.App.navigate('audit')")
     page.wait_for_selector('#audit-draw', timeout=5000)
