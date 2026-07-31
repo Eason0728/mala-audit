@@ -1,1 +1,136 @@
-/* 稽核系統｜列印樣式 — 由 T6（js/views/report.js）填內容，目標單月報告一頁 */
+/* 稽核系統｜列印樣式 — T6（js/views/report.js）產出可列印 PDF（走瀏覽器列印）
+   單月報告目標 A4 一頁（直向）；年度總表可橫向（named page + @page landscape）；黑白可讀。
+   本檔 <link> 在 index.html 上是 media="print"，只在列印時生效，不影響畫面顯示（螢幕樣式在 report.js 內嵌）。 */
+
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
+/* 年度總表用橫向頁：report.js 在 .report-annual 容器上套用，這裡定義它的 named page */
+@page report-annual-page {
+  size: A4 landscape;
+  margin: 10mm;
+}
+
+@media print {
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* 只印報告內容：隱藏頂部標題列、分頁 nav、所有畫面內的操作元件（切換/選單/按鈕） */
+  #app-header,
+  #main-nav,
+  .no-print {
+    display: none !important;
+  }
+
+  .view[hidden] {
+    display: none !important;
+  }
+
+  #app-main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #view-report {
+    padding: 0 !important;
+  }
+
+  #view-report h2 {
+    display: none;
+  }
+
+  .report-print-area {
+    background: #fff !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .report-month {
+    page: auto;
+  }
+
+  .report-annual {
+    page: report-annual-page;
+  }
+
+  .report-header h3 {
+    font-size: 15pt;
+    margin: 0 0 6pt;
+  }
+
+  .report-meta {
+    color: #000 !important;
+    font-size: 10pt;
+  }
+
+  .report-rate {
+    color: #000 !important;
+    font-size: 20pt;
+    font-weight: 700;
+    margin: 4pt 0 8pt;
+  }
+
+  .report-rest {
+    color: #000 !important;
+    font-size: 14pt;
+    font-weight: 700;
+  }
+
+  .report-empty,
+  .report-empty-note {
+    color: #000 !important;
+  }
+
+  /* 表格：黑白可讀，實線框、置中，複製既有 sheet 分頁的觀感 */
+  .report-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9pt;
+    margin: 4pt 0 10pt;
+  }
+
+  .report-table th,
+  .report-table td {
+    border: 0.5pt solid #000 !important;
+    color: #000 !important;
+    padding: 3pt 5pt !important;
+    text-align: center;
+  }
+
+  .report-table thead th {
+    background: #eee !important;
+    font-weight: 700;
+  }
+
+  .report-annual-table td.report-anomaly-cell,
+  .report-annual-table .anomaly-lines {
+    text-align: left;
+    white-space: normal;
+  }
+
+  .report-note h4,
+  .report-anomaly h4,
+  .report-vault h4 {
+    font-size: 10pt;
+    margin: 6pt 0 2pt;
+  }
+
+  /* 避免抽查明細表跨頁攔腰切一列 */
+  .report-detail-table tr,
+  .report-annual-table tr {
+    break-inside: avoid;
+  }
+}

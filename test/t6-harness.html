@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>T6 report.js 測試用假 app 殼</title>
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/print.css" media="print">
+</head>
+<body>
+
+<!-- 仿 index.html 的殼，供 print.css 的 #app-header/#main-nav 選擇器有東西可隱藏 -->
+<header id="app-header">
+  <h1>月初盤點及金庫抽查</h1>
+</header>
+
+<nav id="main-nav">
+  <button type="button" class="nav-btn" data-view="overview">總覽</button>
+  <button type="button" class="nav-btn" data-view="audit">稽核填寫</button>
+  <button type="button" class="nav-btn active" data-view="report">報告</button>
+  <button type="button" class="nav-btn" data-view="analysis">異常分析</button>
+</nav>
+
+<main id="app-main">
+  <section id="view-report" class="view"></section>
+</main>
+
+<script src="../js/config.js"></script>
+<script src="../js/format.js"></script>
+<script src="../js/sampling.js"></script>
+<script src="../js/mock-data.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/views/report.js"></script>
+<script>
+  // 假 app 物件：只提供契約要求的 state/navigate/reload，不依賴尚未完成的 app.js/login/overview。
+  // 用 query string 決定初始 params，模擬「總覽點格子進來」({store, month}) 或「從 nav 進來」({})。
+  (function () {
+    function qs(name) {
+      var m = new RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+      return m ? decodeURIComponent(m[1]) : null;
+    }
+
+    var reportEl = document.getElementById('view-report');
+
+    var initialParams = {};
+    var qStore = qs('store');
+    var qMonth = qs('month');
+    if (qStore && qMonth) {
+      initialParams = { store: qStore, month: qMonth };
+    }
+
+    var app = {
+      state: {
+        role: 'accountant',
+        code: '1234',
+        data: null,
+        year: qs('year') || '2026',
+        params: initialParams
+      },
+      navigate: function (view, params) {
+        app.state.params = params || {};
+        window.Views.report.render(reportEl, app);
+      },
+      reload: function () {
+        return Api.getAll(app.state.code).then(function (res) {
+          app.state.data = res;
+          window.Views.report.render(reportEl, app);
+          return res;
+        });
+      }
+    };
+
+    window.__t6App = app; // 方便 Playwright / console 直接戳狀態
+
+    app.reload().then(function () {
+      window.__t6Ready = true;
+    });
+  })();
+</script>
+</body>
+</html>
