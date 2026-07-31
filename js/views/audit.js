@@ -1,5 +1,4 @@
-// 稽核填寫畫面（js/views/audit.js）—— 本檔目前實作 T4「抽樣區」；
-// T5（填盤點/複盤數、正確/異常判定、金庫區塊、草稿防丟、送出）在本結構上加，不重寫本檔已完成部分。
+// 稽核填寫畫面（js/views/audit.js）—— T4「抽樣區」＋T5「填寫／金庫／草稿／送出」皆已實作。
 //
 // ---- 跨任務 view 契約（逐字照做，見 task.md「共用介面契約」）----
 //   window.Views.audit = { render(el, app) }
@@ -7,16 +6,18 @@
 //   app = { state: {role, code, data, year, params}, navigate(tab, params), reload() }
 //         render 時 app.state.data 一定已載入（= Api.getAll 回傳的 {config, items, records, details}）
 //
-// ---- 給 T5 的擴充點（逐字照做，見交辦 prompt）----
-//   window.AuditState = { store, month, items: [{name, unit, lastDrawn}] }
-//     —— 目前抽樣清單即時同步於此；使用者每次操作（抽樣/換一項/加入/刪除/切店/切月）都會重新賦值。
-//     T5 靠這個物件拿目前清單，不用重新查 DOM。
+// ---- window.AuditState（抽樣清單即時同步，跨畫面唯讀用）----
+//   window.AuditState = { store, month, items: [{name, unit, lastDrawn, book_qty, recount_qty, verdict, reason, note}] }
 //   #audit-items      清單容器 <ul>；每列 <li data-item="{品項名}" data-unit="{單位}">
 //   #audit-store / #audit-month  選店／選月 <select>，value 分別是店代碼／'YYYY-MM'
 //   #audit-count-warning         數量提醒 <p>（≠20 項時顯示，不阻擋送出）
 //
-// 本任務範圍：選店＋選月、「隨機抽 20 項」、每列「換一項」/「刪除」、手動「加入品項」（datalist）、
-// 數量提醒。不含：盤點/複盤數輸入、金庫區塊、送出（T5 範圍）。
+// ---- T5 新增（本檔）----
+//   每列：門市盤點數／會計複盤數（number，可小數）＋正確/異常核定；異常展開原因下拉＋備註。
+//   金庫區塊：零找金／零用金 正確/不正確（顯示標準）、小費金額＋相符/不相符、整單備註。
+//   草稿：localStorage key=`draft_{record_key}`，每次輸入即存；選同店同月自動還原；送出成功才清。
+//   送出：前端驗證 → 覆蓋確認（若同 record_key 已有紀錄）→ Api.submitAudit → 成功清草稿＋
+//         app.reload()＋navigate('report',{store,month})；失敗草稿保留＋顯示「送出失敗」＋「重試送出」。
 
 (function (root) {
   'use strict';
@@ -31,6 +32,17 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  function qtyAttr(v) {
+    return escapeHtml(v === undefined || v === null ? '' : v);
+  }
+
+  // 標準金額顯示：10000 → '1 萬'；整萬數一律顯示「N 萬」；其他原數字顯示
+  function stdLabel(std) {
+    if (typeof std !== 'number' || !std) return String(std || '');
+    if (std % 10000 === 0) return (std / 10000) + ' 萬';
+    return String(std);
   }
 
   function getStoreItems(app, storeCode) {
@@ -54,6 +66,25 @@
     }
     return months;
   }
+
+  // ---- 畫面內嵌樣式（僅本檔可改；同 report.js 慣例，用 JS 內嵌 <style>）----
+  var STYLE =
+    '<style>' +
+    '.audit-item-fill{margin-top:10px;padding-top:10px;border-top:1px dashed var(--color-border);}' +
+    '.audit-item-qty-row{display:flex;gap:8px;}' +
+    '.audit-item-qty-row label{flex:1;font-size:0.85rem;}' +
+    '.audit-choice-group{display:flex;gap:8px;margin-top:8px;}' +
+    '.audit-verdict-btn,.audit-vault-btn{flex:1;padding:10px;border-radius:var(--radius);' +
+    'border:1px solid var(--color-primary);background:var(--color-surface);color:var(--color-primary);font-weight:600;}' +
+    '.audit-verdict-btn.active,.audit-vault-btn.active{background:var(--color-primary);color:#fff;}' +
+    '.audit-anomaly-detail{margin-top:8px;padding:10px;background:var(--color-primary-light);border-radius:var(--radius);}' +
+    '.audit-anomaly-detail label{margin-top:6px;}' +
+    '.audit-anomaly-detail label:first-child{margin-top:0;}' +
+    '.audit-vault-row{margin-bottom:12px;}' +
+    '.audit-vault-row:last-child{margin-bottom:0;}' +
+    '#audit-submit-error{white-space:pre-line;}' +
+    '#audit-overwrite-dialog{border-color:var(--color-danger);}' +
+    '</style>';
 
   function render(el, app) {
     var Sampling = root.Sampling;
@@ -84,12 +115,13 @@
 
     var defaultMonth = params.month
       ? params.month
-      : (year === realYear ? realMonthStr : months[0]);
+      : (String(year) === String(realYear) ? realMonthStr : months[0]);
 
     // ---- 畫面狀態（closure，每次 render 重置）----
     var currentStore = defaultStore;
     var currentMonth = defaultMonth;
-    var items = []; // [{name, unit, lastDrawn}]
+    var items = []; // [{name, unit, lastDrawn, book_qty, recount_qty, verdict, reason, note}]
+    var vaultState = { change_fund: '', petty_cash: '', tip_amount: '', tip_match: '', note: '' };
 
     function syncAuditState() {
       root.AuditState = {
@@ -99,8 +131,61 @@
       };
     }
 
+    // ---- 品項填值正規化：確保每項都有 T5 的欄位（預設空）----
+    function normalizeItem(it) {
+      return {
+        name: it.name,
+        unit: it.unit,
+        lastDrawn: it.lastDrawn || null,
+        book_qty: it.book_qty !== undefined && it.book_qty !== null ? it.book_qty : '',
+        recount_qty: it.recount_qty !== undefined && it.recount_qty !== null ? it.recount_qty : '',
+        verdict: it.verdict || '',
+        reason: it.reason || '',
+        note: it.note || ''
+      };
+    }
+
+    // ---- 草稿：localStorage key=`draft_{record_key}`（每次變動即存；選同店月自動還原）----
+    function draftKey() {
+      return 'draft_' + Format.recordKey(currentStore, currentMonth);
+    }
+
+    function saveDraft() {
+      if (!currentStore || !currentMonth) return;
+      try {
+        var payload = {
+          store: currentStore,
+          month: currentMonth,
+          items: items.map(function (it) {
+            return {
+              name: it.name, unit: it.unit, lastDrawn: it.lastDrawn,
+              book_qty: it.book_qty, recount_qty: it.recount_qty,
+              verdict: it.verdict, reason: it.reason, note: it.note
+            };
+          }),
+          vault: vaultState
+        };
+        localStorage.setItem(draftKey(), JSON.stringify(payload));
+      } catch (e) { /* 儲存空間不可用時忽略，不擋操作 */ }
+    }
+
+    function loadDraft() {
+      try {
+        var raw = localStorage.getItem(draftKey());
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function clearDraft() {
+      try { localStorage.removeItem(draftKey()); } catch (e) { /* 忽略 */ }
+    }
+
     // ---- 模板 ----
     el.innerHTML =
+      STYLE +
       '<h2>稽核填寫</h2>' +
       '<div class="card">' +
         '<label for="audit-store">店</label>' +
@@ -127,7 +212,23 @@
         '<p id="audit-count-warning" hidden ' +
           'style="color:#8a6d00;background:#fff6db;border:1px solid #f0dfa0;border-radius:8px;padding:8px 12px;margin:var(--gap) 0 0;"></p>' +
         '<ul id="audit-items" style="list-style:none;padding:0;margin:var(--gap) 0 0;"></ul>' +
-      '</div>';
+      '</div>' +
+      '<div class="card" id="audit-vault-card">' +
+        '<h3 style="margin-top:0;">金庫抽查</h3>' +
+        '<div id="audit-vault-body"></div>' +
+        '<label for="audit-note" style="margin-top:12px;">整單備註</label>' +
+        '<textarea id="audit-note" rows="3" placeholder="（選填）"></textarea>' +
+      '</div>' +
+      '<p id="audit-submit-error" class="status-danger" hidden></p>' +
+      '<div id="audit-overwrite-dialog" class="card" hidden>' +
+        '<p id="audit-overwrite-text"></p>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<button type="button" id="audit-overwrite-confirm" class="btn">確認覆蓋送出</button>' +
+          '<button type="button" id="audit-overwrite-cancel" class="btn btn-secondary">取消</button>' +
+        '</div>' +
+      '</div>' +
+      '<button type="button" id="audit-submit-btn" class="btn" style="margin-top:var(--gap);">送出稽核</button>' +
+      '<button type="button" id="audit-retry-btn" class="btn" style="margin-top:8px;" hidden>重試送出</button>';
 
     var storeSelect = el.querySelector('#audit-store');
     var monthSelect = el.querySelector('#audit-month');
@@ -137,6 +238,15 @@
     var datalist = el.querySelector('#audit-item-datalist');
     var itemsEl = el.querySelector('#audit-items');
     var warningEl = el.querySelector('#audit-count-warning');
+    var vaultBodyEl = el.querySelector('#audit-vault-body');
+    var noteEl = el.querySelector('#audit-note');
+    var submitErrorEl = el.querySelector('#audit-submit-error');
+    var overwriteDialog = el.querySelector('#audit-overwrite-dialog');
+    var overwriteText = el.querySelector('#audit-overwrite-text');
+    var overwriteConfirmBtn = el.querySelector('#audit-overwrite-confirm');
+    var overwriteCancelBtn = el.querySelector('#audit-overwrite-cancel');
+    var submitBtn = el.querySelector('#audit-submit-btn');
+    var retryBtn = el.querySelector('#audit-retry-btn');
 
     if (defaultStore) storeSelect.value = defaultStore;
     monthSelect.value = defaultMonth;
@@ -146,6 +256,13 @@
     }
     function currentStoreDetails() {
       return getStoreDetails(app, currentStore);
+    }
+
+    function findIndexByName(name) {
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].name === name) return i;
+      }
+      return -1;
     }
 
     function renderDatalist() {
@@ -165,29 +282,56 @@
       }
     }
 
+    function reasonOptionsHtml(selectedReason) {
+      var reasons = config.reasons || [];
+      return '<option value="">請選擇</option>' + reasons.map(function (r) {
+        return '<option value="' + escapeHtml(r) + '"' + (selectedReason === r ? ' selected' : '') + '>' +
+          escapeHtml(r) + '</option>';
+      }).join('');
+    }
+
     function renderItems() {
       itemsEl.innerHTML = items.map(function (it) {
         var flag = it.lastDrawn
           ? '<span class="audit-item-flag" style="color:#a3352a;margin-left:8px;">⚠ ' +
             escapeHtml(it.lastDrawn) + ' 抽過</span>'
           : '';
+        var isAnomaly = it.verdict === '異常';
+        var notePlaceholder = it.reason === '其他' ? '必填：請說明原因' : '選填';
         return (
           '<li class="audit-item-row" data-item="' + escapeHtml(it.name) + '" data-unit="' + escapeHtml(it.unit) + '" ' +
-          'style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--color-border);">' +
-            '<span>' +
-              '<span class="audit-item-name">' + escapeHtml(it.name) + '</span>' +
-              '<span class="audit-item-unit" style="color:var(--color-text-muted);margin-left:4px;">(' + escapeHtml(it.unit) + ')</span>' +
-              flag +
-            '</span>' +
-            '<span style="white-space:nowrap;">' +
-              '<button type="button" class="audit-item-redraw" data-name="' + escapeHtml(it.name) + '">換一項</button>' +
-              '<button type="button" class="audit-item-remove" data-name="' + escapeHtml(it.name) + '" style="margin-left:6px;">刪除</button>' +
-            '</span>' +
+          'style="padding:10px 0;border-bottom:1px solid var(--color-border);">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+              '<span>' +
+                '<span class="audit-item-name">' + escapeHtml(it.name) + '</span>' +
+                '<span class="audit-item-unit" style="color:var(--color-text-muted);margin-left:4px;">(' + escapeHtml(it.unit) + ')</span>' +
+                flag +
+              '</span>' +
+              '<span style="white-space:nowrap;">' +
+                '<button type="button" class="audit-item-redraw" data-name="' + escapeHtml(it.name) + '">換一項</button>' +
+                '<button type="button" class="audit-item-remove" data-name="' + escapeHtml(it.name) + '" style="margin-left:6px;">刪除</button>' +
+              '</span>' +
+            '</div>' +
+            '<div class="audit-item-fill">' +
+              '<div class="audit-item-qty-row">' +
+                '<label>門市盤點數<input type="number" step="any" inputmode="decimal" class="audit-book-qty" value="' + qtyAttr(it.book_qty) + '"></label>' +
+                '<label>會計複盤數<input type="number" step="any" inputmode="decimal" class="audit-recount-qty" value="' + qtyAttr(it.recount_qty) + '"></label>' +
+              '</div>' +
+              '<div class="audit-choice-group">' +
+                '<button type="button" class="audit-verdict-btn' + (it.verdict === '正確' ? ' active' : '') + '" data-verdict="正確">正確</button>' +
+                '<button type="button" class="audit-verdict-btn' + (isAnomaly ? ' active' : '') + '" data-verdict="異常">異常</button>' +
+              '</div>' +
+              '<div class="audit-anomaly-detail"' + (isAnomaly ? '' : ' hidden') + '>' +
+                '<label>異常原因<select class="audit-reason">' + reasonOptionsHtml(it.reason) + '</select></label>' +
+                '<label>備註<input type="text" class="audit-item-note" value="' + escapeHtml(it.note || '') + '" placeholder="' + notePlaceholder + '"></label>' +
+              '</div>' +
+            '</div>' +
           '</li>'
         );
       }).join('');
       renderWarning();
       syncAuditState();
+      saveDraft();
     }
 
     function setItems(newItems) {
@@ -205,28 +349,256 @@
       // 重用 redrawOne：候選池只放這一個目標品項，即可拿到含 lastDrawn 的結果，不必另開純函式
       var picked = Sampling.redrawOne(currentNames, [target], currentStoreDetails());
       if (picked) {
-        items = items.concat([picked]);
+        items = items.concat([normalizeItem(picked)]);
         renderItems();
         addInput.value = '';
       }
     }
 
-    // ---- 事件 ----
+    // ---- 金庫區 ----
+    function vaultChoiceGroup(group, options, current) {
+      return '<div class="audit-choice-group" data-group="' + group + '">' +
+        options.map(function (v) {
+          return '<button type="button" class="audit-vault-btn' + (current === v ? ' active' : '') + '" ' +
+            'data-group="' + group + '" data-value="' + v + '">' + escapeHtml(v) + '</button>';
+        }).join('') +
+      '</div>';
+    }
+
+    function renderVaultBody() {
+      vaultBodyEl.innerHTML =
+        '<div class="audit-vault-row">' +
+          '<label>零找金（標準 ' + escapeHtml(stdLabel(config.change_fund_std)) + '）</label>' +
+          vaultChoiceGroup('change_fund', ['正確', '不正確'], vaultState.change_fund) +
+        '</div>' +
+        '<div class="audit-vault-row">' +
+          '<label>零用金（標準 ' + escapeHtml(stdLabel(config.petty_cash_std)) + '）</label>' +
+          vaultChoiceGroup('petty_cash', ['正確', '不正確'], vaultState.petty_cash) +
+        '</div>' +
+        '<div class="audit-vault-row">' +
+          '<label for="audit-tip-amount">小費金額</label>' +
+          '<input type="number" step="any" inputmode="decimal" id="audit-tip-amount" value="' + qtyAttr(vaultState.tip_amount) + '">' +
+          vaultChoiceGroup('tip_match', ['相符', '不相符'], vaultState.tip_match) +
+        '</div>';
+    }
+
+    function renderVault() {
+      renderVaultBody();
+      noteEl.value = vaultState.note || '';
+    }
+
+    // ---- 驗證（spec §7；枚舉逐字元）----
+    function isBlankNumber(v) {
+      return v === '' || v === null || v === undefined || isNaN(Number(v));
+    }
+
+    function validate() {
+      var errors = [];
+      if (items.length === 0) {
+        errors.push('尚未抽樣，清單是空的');
+      }
+      items.forEach(function (it, idx) {
+        var label = (idx + 1) + '.' + it.name;
+        if (isBlankNumber(it.book_qty)) errors.push(label + '：門市盤點數未填');
+        if (isBlankNumber(it.recount_qty)) errors.push(label + '：會計複盤數未填');
+        if (it.verdict !== '正確' && it.verdict !== '異常') {
+          errors.push(label + '：尚未核定正確／異常');
+        } else if (it.verdict === '異常') {
+          if (!it.reason) {
+            errors.push(label + '：異常需選擇原因');
+          } else if (it.reason === '其他' && !(it.note && it.note.trim())) {
+            errors.push(label + '：原因為「其他」需填寫備註');
+          }
+        }
+      });
+      if (vaultState.change_fund !== '正確' && vaultState.change_fund !== '不正確') {
+        errors.push('零找金尚未核定');
+      }
+      if (vaultState.petty_cash !== '正確' && vaultState.petty_cash !== '不正確') {
+        errors.push('零用金尚未核定');
+      }
+      if (isBlankNumber(vaultState.tip_amount)) {
+        errors.push('小費金額未填');
+      }
+      if (vaultState.tip_match !== '相符' && vaultState.tip_match !== '不相符') {
+        errors.push('小費是否相符尚未核定');
+      }
+      return errors;
+    }
+
+    function todayStr() {
+      var d = new Date();
+      return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+    }
+
+    function nowIso() {
+      var d = new Date();
+      var tzOffsetMin = -d.getTimezoneOffset();
+      var sign = tzOffsetMin >= 0 ? '+' : '-';
+      var abs = Math.abs(tzOffsetMin);
+      var oh = pad2(Math.floor(abs / 60));
+      var om = pad2(abs % 60);
+      return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
+        'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) +
+        sign + oh + ':' + om;
+    }
+
+    function buildRecord() {
+      var total = items.length;
+      var correctCount = items.filter(function (it) { return it.verdict === '正確'; }).length;
+      var anomalyForText = items.filter(function (it) { return it.verdict === '異常'; }).map(function (it) {
+        return { item: it.name, unit: it.unit, book_qty: it.book_qty, recount_qty: it.recount_qty, verdict: '異常' };
+      });
+      return {
+        record_key: Format.recordKey(currentStore, currentMonth),
+        store: currentStore,
+        month: currentMonth,
+        status: '已稽核',
+        audit_date: todayStr(),
+        sample_count: total,
+        correct_count: correctCount,
+        correct_rate: Format.correctRate(correctCount, total),
+        change_fund: vaultState.change_fund,
+        petty_cash: vaultState.petty_cash,
+        tip_amount: Number(vaultState.tip_amount),
+        tip_match: vaultState.tip_match,
+        anomaly_text: Format.buildAnomalyText(anomalyForText),
+        note: vaultState.note || '',
+        submitted_at: nowIso()
+      };
+    }
+
+    function buildDetails() {
+      var key = Format.recordKey(currentStore, currentMonth);
+      return items.map(function (it) {
+        var isAnomaly = it.verdict === '異常';
+        return {
+          record_key: key,
+          store: currentStore,
+          month: currentMonth,
+          item: it.name,
+          unit: it.unit,
+          book_qty: Number(it.book_qty),
+          recount_qty: Number(it.recount_qty),
+          verdict: it.verdict,
+          reason: isAnomaly ? (it.reason || '') : '',
+          note: isAnomaly ? (it.note || '') : ''
+        };
+      });
+    }
+
+    function hideSubmitError() {
+      submitErrorEl.hidden = true;
+      submitErrorEl.textContent = '';
+    }
+    function showSubmitError(msg) {
+      submitErrorEl.textContent = msg;
+      submitErrorEl.hidden = false;
+    }
+    function showSubmitFailure() {
+      showSubmitError('送出失敗，草稿已保留，請按下方「重試送出」再試一次');
+      retryBtn.hidden = false;
+    }
+    function hideOverwriteDialog() {
+      overwriteDialog.hidden = true;
+    }
+    function showOverwriteDialog(existing) {
+      overwriteText.textContent = '將覆蓋 ' + (existing.audit_date || '') + ' 的紀錄，確定送出？';
+      overwriteDialog.hidden = false;
+    }
+
+    function performSubmit() {
+      hideOverwriteDialog();
+      hideSubmitError();
+      retryBtn.hidden = true;
+      submitBtn.disabled = true;
+      submitBtn.textContent = '送出中…';
+      var record = buildRecord();
+      var details = buildDetails();
+      root.Api.submitAudit(app.state.code, record, details).then(function (res) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '送出稽核';
+        if (res && res.ok) {
+          clearDraft();
+          app.reload().then(function () {
+            app.navigate('report', { store: currentStore, month: currentMonth });
+          });
+        } else {
+          showSubmitFailure();
+        }
+      }).catch(function () {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '送出稽核';
+        showSubmitFailure();
+      });
+    }
+
+    function doSubmit() {
+      hideSubmitError();
+      var errors = validate();
+      if (errors.length) {
+        showSubmitError(errors.join('\n'));
+        return;
+      }
+      var key = Format.recordKey(currentStore, currentMonth);
+      var records = (app.state.data && app.state.data.records) || [];
+      var existing = records.filter(function (r) { return r.record_key === key; })[0];
+      if (existing) {
+        showOverwriteDialog(existing);
+      } else {
+        performSubmit();
+      }
+    }
+
+    // ---- 草稿還原／重置：切店／切月／初次進畫面都會呼叫 ----
+    function applyDraft(draft) {
+      items = (draft.items || []).map(normalizeItem);
+      var v = draft.vault || {};
+      vaultState = {
+        change_fund: v.change_fund || '',
+        petty_cash: v.petty_cash || '',
+        tip_amount: v.tip_amount !== undefined && v.tip_amount !== null ? v.tip_amount : '',
+        tip_match: v.tip_match || '',
+        note: v.note || ''
+      };
+    }
+
+    function resetState() {
+      items = [];
+      vaultState = { change_fund: '', petty_cash: '', tip_amount: '', tip_match: '', note: '' };
+    }
+
+    function tryRestoreOrReset() {
+      var draft = loadDraft();
+      if (draft) {
+        applyDraft(draft);
+      } else {
+        resetState();
+      }
+      renderItems();
+      renderVault();
+      hideSubmitError();
+      hideOverwriteDialog();
+      retryBtn.hidden = true;
+    }
+
+    // ---- 事件：選店／選月 ----
     storeSelect.addEventListener('change', function () {
       currentStore = storeSelect.value;
       renderDatalist();
-      setItems([]);
+      tryRestoreOrReset();
     });
 
     monthSelect.addEventListener('change', function () {
       currentMonth = monthSelect.value;
-      syncAuditState();
+      tryRestoreOrReset();
     });
 
+    // ---- 事件：抽樣區（既有行為不變，僅補上 normalizeItem）----
     drawBtn.addEventListener('click', function () {
       var storeItems = currentStoreItems();
       var storeDetails = currentStoreDetails();
-      setItems(Sampling.drawSample(storeItems, storeDetails, 20));
+      setItems(Sampling.drawSample(storeItems, storeDetails, 20).map(normalizeItem));
     });
 
     addBtn.addEventListener('click', function () {
@@ -244,6 +616,7 @@
       var target = e.target;
       var redrawBtn = target.closest ? target.closest('.audit-item-redraw') : null;
       var removeBtn = target.closest ? target.closest('.audit-item-remove') : null;
+      var verdictBtn = target.closest ? target.closest('.audit-verdict-btn') : null;
 
       if (redrawBtn) {
         var name = redrawBtn.getAttribute('data-name');
@@ -254,7 +627,7 @@
         var replacement = Sampling.redrawOne(currentNames, currentStoreItems(), currentStoreDetails());
         if (replacement) {
           items = items.slice();
-          items[idx] = replacement;
+          items[idx] = normalizeItem(replacement);
           renderItems();
         } else {
           warningEl.hidden = false;
@@ -265,12 +638,98 @@
         var rmName = removeBtn.getAttribute('data-name');
         items = items.filter(function (it) { return it.name !== rmName; });
         renderItems();
+      } else if (verdictBtn) {
+        var li = target.closest('.audit-item-row');
+        if (!li) return;
+        var itemName = li.getAttribute('data-item');
+        var itemIdx = findIndexByName(itemName);
+        if (itemIdx === -1) return;
+        var verdict = verdictBtn.getAttribute('data-verdict');
+        items[itemIdx].verdict = verdict;
+        if (verdict !== '異常') {
+          items[itemIdx].reason = '';
+          items[itemIdx].note = '';
+        }
+        renderItems();
       }
     });
 
+    // ---- 事件：每列盤點數／複盤數／異常備註（即時同步，不整列重繪，避免輸入中失焦）----
+    itemsEl.addEventListener('input', function (e) {
+      var target = e.target;
+      var li = target.closest ? target.closest('.audit-item-row') : null;
+      if (!li) return;
+      var idx = findIndexByName(li.getAttribute('data-item'));
+      if (idx === -1) return;
+      if (target.classList.contains('audit-book-qty')) {
+        items[idx].book_qty = target.value;
+        saveDraft();
+      } else if (target.classList.contains('audit-recount-qty')) {
+        items[idx].recount_qty = target.value;
+        saveDraft();
+      } else if (target.classList.contains('audit-item-note')) {
+        items[idx].note = target.value;
+        saveDraft();
+      }
+    });
+
+    // ---- 事件：異常原因下拉 ----
+    itemsEl.addEventListener('change', function (e) {
+      var target = e.target;
+      if (!target.classList.contains('audit-reason')) return;
+      var li = target.closest ? target.closest('.audit-item-row') : null;
+      if (!li) return;
+      var idx = findIndexByName(li.getAttribute('data-item'));
+      if (idx === -1) return;
+      items[idx].reason = target.value;
+      var noteInput = li.querySelector('.audit-item-note');
+      if (noteInput) {
+        noteInput.placeholder = target.value === '其他' ? '必填：請說明原因' : '選填';
+      }
+      saveDraft();
+    });
+
+    // ---- 事件：金庫區塊 ----
+    vaultBodyEl.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('.audit-vault-btn') : null;
+      if (!btn) return;
+      vaultState[btn.getAttribute('data-group')] = btn.getAttribute('data-value');
+      renderVaultBody();
+      saveDraft();
+    });
+
+    vaultBodyEl.addEventListener('input', function (e) {
+      if (e.target && e.target.id === 'audit-tip-amount') {
+        vaultState.tip_amount = e.target.value;
+        saveDraft();
+      }
+    });
+
+    noteEl.addEventListener('input', function () {
+      vaultState.note = noteEl.value;
+      saveDraft();
+    });
+
+    // ---- 事件：送出／覆蓋確認／失敗重試 ----
+    submitBtn.addEventListener('click', function () {
+      doSubmit();
+    });
+
+    retryBtn.addEventListener('click', function () {
+      performSubmit();
+    });
+
+    overwriteConfirmBtn.addEventListener('click', function () {
+      performSubmit();
+    });
+
+    overwriteCancelBtn.addEventListener('click', function () {
+      hideOverwriteDialog();
+    });
+
+    // ---- 初始化：datalist 先建，再嘗試還原草稿（找不到就從空清單開始）----
     renderDatalist();
-    renderItems();
-    syncAuditState();
+    tryRestoreOrReset();
   }
 
   root.Views = root.Views || {};
