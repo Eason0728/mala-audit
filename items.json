@@ -1,0 +1,873 @@
+{
+ "items": [
+  {
+   "name": "高麗菜",
+   "unit": "箱",
+   "category": "蔬菜",
+   "label": "高麗菜（箱）"
+  },
+  {
+   "name": "豆芽菜",
+   "unit": "斤",
+   "category": "蔬菜",
+   "label": "豆芽菜（斤）"
+  },
+  {
+   "name": "秀珍菇",
+   "unit": "斤",
+   "category": "蔬菜",
+   "label": "秀珍菇（斤）"
+  },
+  {
+   "name": "黑木耳",
+   "unit": "斤",
+   "category": "蔬菜",
+   "label": "黑木耳（斤）"
+  },
+  {
+   "name": "玉米筍",
+   "unit": "斤",
+   "category": "蔬菜",
+   "label": "玉米筍（斤）"
+  },
+  {
+   "name": "小黃瓜",
+   "unit": "斤",
+   "category": "蔬菜",
+   "label": "小黃瓜（斤）"
+  },
+  {
+   "name": "金針菇",
+   "unit": "袋",
+   "category": "蔬菜",
+   "label": "金針菇（袋）"
+  },
+  {
+   "name": "大陸妹",
+   "unit": "斤",
+   "category": "蔬菜",
+   "label": "大陸妹（斤）"
+  },
+  {
+   "name": "洋蔥",
+   "unit": "袋",
+   "category": "蔬菜",
+   "label": "洋蔥（袋）"
+  },
+  {
+   "name": "水蓮",
+   "unit": "包",
+   "category": "蔬菜",
+   "label": "水蓮（包）"
+  },
+  {
+   "name": "娃娃菜",
+   "unit": "包",
+   "category": "蔬菜",
+   "label": "娃娃菜（包）"
+  },
+  {
+   "name": "百頁豆腐（松強）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "百頁豆腐（松強）"
+  },
+  {
+   "name": "非基改凍豆腐",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "非基改凍豆腐"
+  },
+  {
+   "name": "米血（洪牌）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "米血（洪牌）"
+  },
+  {
+   "name": "鑫鑫腸（卜蜂）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "鑫鑫腸（卜蜂）"
+  },
+  {
+   "name": "甜不辣（蕭牌）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "甜不辣（蕭牌）"
+  },
+  {
+   "name": "黃金魚蛋（川島）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "黃金魚蛋（川島）"
+  },
+  {
+   "name": "純肉小貢丸（鮮味嘉）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "純肉小貢丸（鮮味嘉）"
+  },
+  {
+   "name": "炸薯塊（麥肯）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "炸薯塊（麥肯）"
+  },
+  {
+   "name": "7mm薯條（佛瑞特）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "7mm薯條（佛瑞特）"
+  },
+  {
+   "name": "豆包（富源成）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "豆包（富源成）"
+  },
+  {
+   "name": "0.8mm水煮蓮藕片（晨欣）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "0.8mm水煮蓮藕片（晨欣）"
+  },
+  {
+   "name": "冷凍青花菜（鮮味嘉）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "冷凍青花菜（鮮味嘉）"
+  },
+  {
+   "name": "冷凍玉米筍（佳昱）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "冷凍玉米筍（佳昱）"
+  },
+  {
+   "name": "冷凍玉米塊（鮮味嘉）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "冷凍玉米塊（鮮味嘉）"
+  },
+  {
+   "name": "無蔥肥腸（佳味）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "無蔥肥腸（佳味）"
+  },
+  {
+   "name": "滷豆干（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "滷豆干（央廚）"
+  },
+  {
+   "name": "煙燻豬頭皮（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "煙燻豬頭皮（央廚）"
+  },
+  {
+   "name": "黃金鴨掌（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "黃金鴨掌（央廚）"
+  },
+  {
+   "name": "醋溜木耳（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "醋溜木耳（央廚）"
+  },
+  {
+   "name": "鮮蝦抄手（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "鮮蝦抄手（央廚）"
+  },
+  {
+   "name": "花雕雞腿肉（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "花雕雞腿肉（央廚）"
+  },
+  {
+   "name": "明太子蝦滑（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "明太子蝦滑（央廚）"
+  },
+  {
+   "name": "脆薯（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "脆薯（央廚）"
+  },
+  {
+   "name": "滷牛筋（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "滷牛筋（央廚）"
+  },
+  {
+   "name": "滷牛肚（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "滷牛肚（央廚）"
+  },
+  {
+   "name": "香脆雞丁（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "香脆雞丁（央廚）"
+  },
+  {
+   "name": "熟紅蟳（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "熟紅蟳（央廚）"
+  },
+  {
+   "name": "米腸（仲輝）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "米腸（仲輝）"
+  },
+  {
+   "name": "嫩肩牛肉捲（巴拉圭）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "嫩肩牛肉捲（巴拉圭）"
+  },
+  {
+   "name": "前腿豬肉捲（加拿大）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "前腿豬肉捲（加拿大）"
+  },
+  {
+   "name": "鳥蛋（市場）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "鳥蛋（市場）"
+  },
+  {
+   "name": "臭豆腐（大大）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "臭豆腐（大大）"
+  },
+  {
+   "name": "川味韓式泡菜（央廚）",
+   "unit": "",
+   "category": "火鍋料",
+   "label": "川味韓式泡菜（央廚）"
+  },
+  {
+   "name": "王子麵（味王/40入）",
+   "unit": "",
+   "category": "常溫食材",
+   "label": "王子麵（味王/40入）"
+  },
+  {
+   "name": "蒸煮麵（維力/10粒）",
+   "unit": "",
+   "category": "常溫食材",
+   "label": "蒸煮麵（維力/10粒）"
+  },
+  {
+   "name": "鍋燒意麵（上智/50包）",
+   "unit": "",
+   "category": "常溫食材",
+   "label": "鍋燒意麵（上智/50包）"
+  },
+  {
+   "name": "豆皮捲（龍勝）",
+   "unit": "",
+   "category": "常溫食材",
+   "label": "豆皮捲（龍勝）"
+  },
+  {
+   "name": "角螺（龍勝）",
+   "unit": "",
+   "category": "常溫食材",
+   "label": "角螺（龍勝）"
+  },
+  {
+   "name": "皮蛋",
+   "unit": "顆",
+   "category": "常溫食材",
+   "label": "皮蛋（顆）"
+  },
+  {
+   "name": "三好米",
+   "unit": "",
+   "category": "常溫食材",
+   "label": "三好米"
+  },
+  {
+   "name": "油條（鼎上一品）",
+   "unit": "",
+   "category": "常溫食材",
+   "label": "油條（鼎上一品）"
+  },
+  {
+   "name": "鴨血（大大行）",
+   "unit": "盒",
+   "category": "常溫食材",
+   "label": "鴨血／盒（大大行）"
+  },
+  {
+   "name": "香菜",
+   "unit": "把",
+   "category": "辛香料",
+   "label": "香菜（把）"
+  },
+  {
+   "name": "九層塔",
+   "unit": "斤",
+   "category": "辛香料",
+   "label": "九層塔（斤）"
+  },
+  {
+   "name": "老薑",
+   "unit": "斤",
+   "category": "辛香料",
+   "label": "老薑（斤）"
+  },
+  {
+   "name": "蒜仁",
+   "unit": "斤",
+   "category": "辛香料",
+   "label": "蒜仁（斤）"
+  },
+  {
+   "name": "貴夫人K7黑麻油",
+   "unit": "桶",
+   "category": "醬料",
+   "label": "貴夫人K7黑麻油（桶）"
+  },
+  {
+   "name": "蛤蠣粉",
+   "unit": "盒",
+   "category": "醬料",
+   "label": "蛤蠣粉（盒）"
+  },
+  {
+   "name": "美食家耐炸油18L",
+   "unit": "",
+   "category": "醬料",
+   "label": "美食家耐炸油18L"
+  },
+  {
+   "name": "味素",
+   "unit": "包",
+   "category": "醬料",
+   "label": "味素（包）"
+  },
+  {
+   "name": "台鹽高級碘鹽",
+   "unit": "包",
+   "category": "醬料",
+   "label": "台鹽高級碘鹽（包）"
+  },
+  {
+   "name": "冰糖",
+   "unit": "包",
+   "category": "醬料",
+   "label": "冰糖（包）"
+  },
+  {
+   "name": "龜甲萬醬油",
+   "unit": "桶",
+   "category": "醬料",
+   "label": "龜甲萬醬油（桶）"
+  },
+  {
+   "name": "金蘭油膏",
+   "unit": "桶",
+   "category": "醬料",
+   "label": "金蘭油膏（桶）"
+  },
+  {
+   "name": "工研烏醋",
+   "unit": "桶",
+   "category": "醬料",
+   "label": "工研烏醋（桶）"
+  },
+  {
+   "name": "太白粉",
+   "unit": "袋",
+   "category": "醬料",
+   "label": "太白粉（袋）"
+  },
+  {
+   "name": "甘草粉",
+   "unit": "盒",
+   "category": "醬料",
+   "label": "甘草粉（盒）"
+  },
+  {
+   "name": "正元堂川芎",
+   "unit": "包",
+   "category": "醬料",
+   "label": "正元堂川芎（包）"
+  },
+  {
+   "name": "元春堂肉桂捲",
+   "unit": "包",
+   "category": "醬料",
+   "label": "元春堂肉桂捲（包）"
+  },
+  {
+   "name": "元春堂八角",
+   "unit": "包",
+   "category": "醬料",
+   "label": "元春堂八角（包）"
+  },
+  {
+   "name": "玉泉紹興酒",
+   "unit": "瓶",
+   "category": "醬料",
+   "label": "玉泉紹興酒（瓶）"
+  },
+  {
+   "name": "郫縣豆瓣醬",
+   "unit": "包",
+   "category": "醬料",
+   "label": "郫縣豆瓣醬（包）"
+  },
+  {
+   "name": "細粒特級砂糖",
+   "unit": "包",
+   "category": "醬料",
+   "label": "細粒特級砂糖（包）"
+  },
+  {
+   "name": "台灣白芝麻粒（1斤/包）",
+   "unit": "",
+   "category": "醬料",
+   "label": "台灣白芝麻粒（1斤/包）"
+  },
+  {
+   "name": "香油500ml",
+   "unit": "瓶",
+   "category": "醬料",
+   "label": "香油500ml（瓶）"
+  },
+  {
+   "name": "肉燥（央廚）",
+   "unit": "包",
+   "category": "醬料",
+   "label": "肉燥／包（央廚）"
+  },
+  {
+   "name": "特製辣椒醬（央廚）",
+   "unit": "包",
+   "category": "醬料",
+   "label": "特製辣椒醬／包（央廚）"
+  },
+  {
+   "name": "麻辣醬（央廚）",
+   "unit": "包",
+   "category": "醬料",
+   "label": "麻辣醬／包（央廚）"
+  },
+  {
+   "name": "麻辣炒醬／1kg（央廚）",
+   "unit": "包",
+   "category": "醬料",
+   "label": "麻辣炒醬／包／1kg（央廚）"
+  },
+  {
+   "name": "麻辣粉／1kg（央廚）",
+   "unit": "包",
+   "category": "醬料",
+   "label": "麻辣粉／包／1kg（央廚）"
+  },
+  {
+   "name": "日本炊飯酵素（央廚）",
+   "unit": "罐",
+   "category": "醬料",
+   "label": "日本炊飯酵素／罐（央廚）"
+  },
+  {
+   "name": "乾辣椒／0.6kg（央廚）",
+   "unit": "",
+   "category": "醬料",
+   "label": "乾辣椒／0.6kg（央廚）"
+  },
+  {
+   "name": "可果美番茄醬",
+   "unit": "桶",
+   "category": "醬料",
+   "label": "可果美番茄醬（桶）"
+  },
+  {
+   "name": "新版麻辣炒醬／1kg（央廚）",
+   "unit": "包",
+   "category": "醬料",
+   "label": "新版麻辣炒醬／包／1kg（央廚）"
+  },
+  {
+   "name": "中筋麵粉（日正）",
+   "unit": "",
+   "category": "醬料",
+   "label": "中筋麵粉（日正）"
+  },
+  {
+   "name": "李燈燦辣椒油/罐（吉順）",
+   "unit": "",
+   "category": "醬料",
+   "label": "李燈燦辣椒油/罐（吉順）"
+  },
+  {
+   "name": "酸梅湯（央廚）",
+   "unit": "罐",
+   "category": "飲料冰品",
+   "label": "酸梅湯／罐（央廚）"
+  },
+  {
+   "name": "綠茶／1.8kg（央廚）",
+   "unit": "袋",
+   "category": "飲料冰品",
+   "label": "綠茶／袋／1.8kg（央廚）"
+  },
+  {
+   "name": "Niseko（薄荷巧克力）",
+   "unit": "桶",
+   "category": "飲料冰品",
+   "label": "Niseko（薄荷巧克力）／桶"
+  },
+  {
+   "name": "Niseko（芒果）",
+   "unit": "桶",
+   "category": "飲料冰品",
+   "label": "Niseko（芒果）／桶"
+  },
+  {
+   "name": "Poki（香草）",
+   "unit": "桶",
+   "category": "飲料冰品",
+   "label": "Poki（香草）／桶"
+  },
+  {
+   "name": "Poki（草莓牛奶）",
+   "unit": "桶",
+   "category": "飲料冰品",
+   "label": "Poki（草莓牛奶）／桶"
+  },
+  {
+   "name": "茉莉綠茶濃縮汁",
+   "unit": "罐",
+   "category": "飲料冰品",
+   "label": "茉莉綠茶濃縮汁／罐"
+  },
+  {
+   "name": "冬瓜檸檬濃縮糖漿",
+   "unit": "罐",
+   "category": "飲料冰品",
+   "label": "冬瓜檸檬濃縮糖漿／罐"
+  },
+  {
+   "name": "Poki（青檸乳酪）",
+   "unit": "桶",
+   "category": "飲料冰品",
+   "label": "Poki（青檸乳酪）／桶"
+  },
+  {
+   "name": "Poki（巧克力）",
+   "unit": "桶",
+   "category": "飲料冰品",
+   "label": "Poki（巧克力）／桶"
+  },
+  {
+   "name": "902扁碗凸蓋（50入）",
+   "unit": "條",
+   "category": "包材",
+   "label": "902扁碗凸蓋／條（50入）"
+  },
+  {
+   "name": "818透明單支包吸管（1公斤）",
+   "unit": "包",
+   "category": "包材",
+   "label": "818透明單支包吸管／包（1公斤）"
+  },
+  {
+   "name": "5.0opp空白包裝竹筷（100雙）",
+   "unit": "包",
+   "category": "包材",
+   "label": "5.0opp空白包裝竹筷／包（100雙）"
+  },
+  {
+   "name": "180小菜盒(上蓋)（50入）",
+   "unit": "條",
+   "category": "包材",
+   "label": "180小菜盒(上蓋)／條（50入）"
+  },
+  {
+   "name": "180小菜盒(下盒)（50入）",
+   "unit": "條",
+   "category": "包材",
+   "label": "180小菜盒(下盒)／條（50入）"
+  },
+  {
+   "name": "3*5pp袋",
+   "unit": "",
+   "category": "包材",
+   "label": "3*5pp袋"
+  },
+  {
+   "name": "4*6pp袋",
+   "unit": "",
+   "category": "包材",
+   "label": "4*6pp袋"
+  },
+  {
+   "name": "6*7pp袋",
+   "unit": "",
+   "category": "包材",
+   "label": "6*7pp袋"
+  },
+  {
+   "name": "1斤提袋",
+   "unit": "",
+   "category": "包材",
+   "label": "1斤提袋"
+  },
+  {
+   "name": "3斤提袋",
+   "unit": "",
+   "category": "包材",
+   "label": "3斤提袋"
+  },
+  {
+   "name": "5斤提袋",
+   "unit": "",
+   "category": "包材",
+   "label": "5斤提袋"
+  },
+  {
+   "name": "半斤耐熱袋",
+   "unit": "",
+   "category": "包材",
+   "label": "半斤耐熱袋"
+  },
+  {
+   "name": "1斤耐熱袋",
+   "unit": "",
+   "category": "包材",
+   "label": "1斤耐熱袋"
+  },
+  {
+   "name": "260湯蓋（50入）",
+   "unit": "條",
+   "category": "包材",
+   "label": "260湯蓋／條（50入）"
+  },
+  {
+   "name": "260全白湯碗（50入）",
+   "unit": "條",
+   "category": "包材",
+   "label": "260全白湯碗／條（50入）"
+  },
+  {
+   "name": "390湯蓋（50入）",
+   "unit": "條",
+   "category": "包材",
+   "label": "390湯蓋／條（50入）"
+  },
+  {
+   "name": "390全白湯碗（50入）",
+   "unit": "條",
+   "category": "包材",
+   "label": "390全白湯碗／條（50入）"
+  },
+  {
+   "name": "205紙杯/條（2000入）",
+   "unit": "",
+   "category": "包材",
+   "label": "205紙杯/條（2000入）"
+  },
+  {
+   "name": "布丁小湯匙（100支）",
+   "unit": "",
+   "category": "包材",
+   "label": "布丁小湯匙（100支）"
+  },
+  {
+   "name": "LOGO制服（M）",
+   "unit": "",
+   "category": "包材",
+   "label": "LOGO制服（M）"
+  },
+  {
+   "name": "LOGO 602碗",
+   "unit": "條",
+   "category": "包材",
+   "label": "LOGO 602碗／條"
+  },
+  {
+   "name": "LOGO 902碗",
+   "unit": "條",
+   "category": "包材",
+   "label": "LOGO 902碗／條"
+  },
+  {
+   "name": "LOGO飲料杯",
+   "unit": "條",
+   "category": "包材",
+   "label": "LOGO飲料杯／條"
+  },
+  {
+   "name": "LOGO封口膜／入",
+   "unit": "",
+   "category": "包材",
+   "label": "LOGO封口膜／入"
+  },
+  {
+   "name": "感熱紙（80*80）",
+   "unit": "捲",
+   "category": "包材",
+   "label": "感熱紙／捲（80*80）"
+  },
+  {
+   "name": "感熱貼紙（40*25）",
+   "unit": "捲",
+   "category": "包材",
+   "label": "感熱貼紙／捲（40*25）"
+  },
+  {
+   "name": "洗碗精（3.5kg）",
+   "unit": "桶",
+   "category": "清潔用品",
+   "label": "洗碗精／桶（3.5kg）"
+  },
+  {
+   "name": "漂白水（3.5kg）",
+   "unit": "桶",
+   "category": "清潔用品",
+   "label": "漂白水／桶（3.5kg）"
+  },
+  {
+   "name": "酒精（4000cc）",
+   "unit": "桶",
+   "category": "清潔用品",
+   "label": "酒精／桶（4000cc）"
+  },
+  {
+   "name": "小抽衛生紙",
+   "unit": "包",
+   "category": "清潔用品",
+   "label": "小抽衛生紙／包"
+  },
+  {
+   "name": "擦手紙",
+   "unit": "包",
+   "category": "清潔用品",
+   "label": "擦手紙／包"
+  },
+  {
+   "name": "南亞保鮮膜",
+   "unit": "捲",
+   "category": "清潔用品",
+   "label": "南亞保鮮膜／捲"
+  },
+  {
+   "name": "菜瓜布",
+   "unit": "個",
+   "category": "清潔用品",
+   "label": "菜瓜布／個"
+  },
+  {
+   "name": "除油清潔劑（1加侖）",
+   "unit": "桶",
+   "category": "清潔用品",
+   "label": "除油清潔劑／桶（1加侖）"
+  },
+  {
+   "name": "洗衣粉",
+   "unit": "袋",
+   "category": "清潔用品",
+   "label": "洗衣粉／袋"
+  },
+  {
+   "name": "無粉手套",
+   "unit": "盒",
+   "category": "清潔用品",
+   "label": "無粉手套／盒"
+  },
+  {
+   "name": "手扒雞手套",
+   "unit": "盒",
+   "category": "清潔用品",
+   "label": "手扒雞手套／盒"
+  },
+  {
+   "name": "束繩",
+   "unit": "包",
+   "category": "清潔用品",
+   "label": "束繩／包"
+  },
+  {
+   "name": "地板清潔劑",
+   "unit": "桶",
+   "category": "清潔用品",
+   "label": "地板清潔劑／桶"
+  },
+  {
+   "name": "廁所清潔劑",
+   "unit": "桶",
+   "category": "清潔用品",
+   "label": "廁所清潔劑／桶"
+  },
+  {
+   "name": "黑色垃圾袋（超大）",
+   "unit": "包",
+   "category": "清潔用品",
+   "label": "黑色垃圾袋／包（超大）"
+  },
+  {
+   "name": "黑色拉繩平底袋（特）",
+   "unit": "捲",
+   "category": "清潔用品",
+   "label": "黑色拉繩平底袋／捲（特）"
+  },
+  {
+   "name": "小垃圾袋",
+   "unit": "包",
+   "category": "清潔用品",
+   "label": "小垃圾袋／包"
+  },
+  {
+   "name": "洗手乳",
+   "unit": "罐",
+   "category": "清潔用品",
+   "label": "洗手乳／罐"
+  },
+  {
+   "name": "桌面清潔劑/桶（3780）",
+   "unit": "",
+   "category": "清潔用品",
+   "label": "桌面清潔劑/桶（3780）"
+  }
+ ],
+ "unpicked": [
+  "骰子雞丁（央廚）",
+  "川香小酥肉（央廚）",
+  "福壽沙拉油18L",
+  "福壽辣椒油3L（桶）",
+  "小酥肉炸粉／包／1kg（央廚）",
+  "Niseko（抹茶）／桶",
+  "Poki（芒果）／桶",
+  "Poki（海鹽檸檬）／桶",
+  "Poki（黑糖珍珠）／桶",
+  "Poki（花生巧酥）／桶",
+  "Poki（百香果）／桶",
+  "LOGO制服（S）",
+  "LOGO制服（L）",
+  "LOGO柳木托盤／個",
+  "23cm不銹鋼干鍋組／組"
+ ]
+}
