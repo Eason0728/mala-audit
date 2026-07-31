@@ -195,6 +195,30 @@ function baseRecord(overrides) {
 })();
 
 // ============================================================
+// 3b. 送出路徑必須鎖住年月等欄位的文字格式
+//     （doPost 不經過 setup()，漏掉的話新紀錄的年月會被試算表存成 Date——2026-08-01 實測踩過）
+// ============================================================
+(function () {
+  var db = freshDb();
+  var record = baseRecord({});
+  var details = buildDetails20('sxl-gf_2026-08', 'sxl-gf', '2026-08');
+  gas.handleSubmitAudit({ record: record, details: details }, db);
+  var rec = db._textCols['稽核紀錄'] || [];
+  var det = db._textCols['抽查明細'] || [];
+  ['A', 'C', 'E', 'O'].forEach(function (c) {
+    assertEqual(rec.indexOf(c) !== -1, true, 'submitAudit 鎖稽核紀錄 ' + c + ' 欄為文字');
+  });
+  ['A', 'C'].forEach(function (c) {
+    assertEqual(det.indexOf(c) !== -1, true, 'submitAudit 鎖抽查明細 ' + c + ' 欄為文字');
+  });
+
+  var db2 = freshDb();
+  gas.handleMarkRest({ store: 'ck', month: '2026-08' }, db2);
+  assertEqual((db2._textCols['稽核紀錄'] || []).indexOf('C') !== -1, true,
+    'markRest 也鎖稽核紀錄 C 欄為文字');
+})();
+
+// ============================================================
 // 4. 權限：現行設定不需通行碼 → 任何人都能送出；開關切回 true 時主管碼仍被擋
 // ============================================================
 (function () {

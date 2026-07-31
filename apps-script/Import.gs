@@ -73,6 +73,15 @@ function ensureDataTabs_(db) {
     db.createTab(TAB_SETTINGS);
     db.setRows(TAB_SETTINGS, SETTINGS_DEFAULTS);
   }
+
+  // 每次都執行（冪等）：把會被試算表誤判成日期的欄位鎖成純文字。
+  // 年月 `2026-01`、稽核日期 `2026-08-05`、提交時間 ISO 字串都會被自動轉成 Date，
+  // 存進去再讀出來就不是原字串，前端月份比對會全部落空（2026-08-01 實測踩到）。
+  // 數值欄（抽查數量／正確數量／正確率／小費金額／盤點數／複盤數）不動，要保持數字。
+  if (db.setColumnsText) {
+    db.setColumnsText(TAB_RECORDS, ['A', 'C', 'E', 'O']); // record_key／年月／稽核日期／提交時間
+    db.setColumnsText(TAB_DETAILS, ['A', 'C']);           // record_key／年月
+  }
 }
 
 // migrateDisplayTab_(db, tabName) → bool（是否實際執行了遷移；已遷移過回 false）

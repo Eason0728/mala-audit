@@ -63,6 +63,7 @@ function loadGas() {
 // makeMemoryDb(seedTabs) — seedTabs: { tabName: Array<Array> }（含表頭列，照 db.getRows 約定）
 function makeMemoryDb(seedTabs) {
   var data = {};
+  var textCols = {};
   Object.keys(seedTabs || {}).forEach(function (tab) {
     data[tab] = (seedTabs[tab] || []).map(function (row) { return row.slice(); });
   });
@@ -95,6 +96,14 @@ function makeMemoryDb(seedTabs) {
       if (!data[tabName] || !data[tabName][pos.row]) return undefined;
       return data[tabName][pos.row][pos.col];
     },
+    // 記憶體版沒有「儲存格格式」概念，只記錄被鎖成文字的欄位供測試斷言
+    // （真環境的 setNumberFormat('@') 是防年月被試算表轉成 Date 的關鍵，見 Code.gs）
+    setColumnsText: function (tabName, cols) {
+      if (!textCols[tabName]) textCols[tabName] = [];
+      (cols || []).forEach(function (c) {
+        if (textCols[tabName].indexOf(c) === -1) textCols[tabName].push(c);
+      });
+    },
     hasTab: function (tabName) {
       return Object.prototype.hasOwnProperty.call(data, tabName);
     },
@@ -102,7 +111,8 @@ function makeMemoryDb(seedTabs) {
       if (!data[tabName]) data[tabName] = [];
     },
     // 測試專用：直接讀底層資料，不走 getRows 的複製
-    _raw: data
+    _raw: data,
+    _textCols: textCols
   };
 }
 

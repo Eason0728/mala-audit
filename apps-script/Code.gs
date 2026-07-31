@@ -163,6 +163,7 @@ function handleSubmitAudit(payload, db) {
     return { ok: false, error: detailsErr };
   }
 
+  ensureTextColumns_(db);
   upsertRecord_(db, record);
   replaceDetails_(db, record.record_key, details);
   writeDisplayTabAudited_(db, record);
@@ -188,6 +189,7 @@ function handleMarkRest(payload, db) {
     return { ok: false, error: '年月格式錯誤：' + month };
   }
 
+  ensureTextColumns_(db);
   var key = store + '_' + month;
   var now = nowISO_();
   var record = {
@@ -205,6 +207,15 @@ function handleMarkRest(payload, db) {
 // ── 內部工具：只碰 db 介面 ───────────────────────────────────────────
 
 // resolveRole_(code, db) → 'accountant' | 'viewer' | null（不合法一律 null，不洩漏通行碼比對細節）
+// 每次寫入前把「會被試算表誤判成日期」的欄位鎖成純文字。
+// 不能只在 Import.gs 的 setup() 做：doPost 的送出路徑不會經過 setup，
+// 漏掉的話新送出的紀錄年月又會變成 Date，前端月份比對就落空（2026-08-01 實測踩到兩次）。
+function ensureTextColumns_(db) {
+  if (!db.setColumnsText) return;
+  db.setColumnsText(TAB_RECORDS, ['A', 'C', 'E', 'O']); // record_key／年月／稽核日期／提交時間
+  db.setColumnsText(TAB_DETAILS, ['A', 'C']);           // record_key／年月
+}
+
 function resolveRole_(code, db) {
   // Eason 2026-08-01 指定「不需要通行碼」：任何人開網址即可使用（含填寫）。
   // 要恢復登入時：本常數與 js/config.js 的 REQUIRE_PASSCODE 一起改 true，
@@ -464,6 +475,16 @@ function makeDb_() {
       } else {
         range.setValue(value);
       }
+    },
+    // 把整欄設成純文字格式（'@'）。用途：`2026-01`、`2026-08-05` 這類字串寫進試算表時
+    // 會被自動判讀成日期存成 Date（2026-08-01 實測踩到：年月欄變成 2025-12-31T16:00Z），
+    // 導致前端月份比對全部對不上。寫入前先把這些欄鎖成文字。
+    setColumnsText: function (tabName, cols) {
+      var sh = sheet_(tabName);
+      if (!sh) return;
+      (cols || []).forEach(function (c) {
+        sh.getRange(c + '1:' + c).setNumberFormat('@');
+      });
     },
     getCell: function (tabName, a1) {
       var sh = sheet_(tabName);

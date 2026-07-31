@@ -90,6 +90,19 @@ eq(db.getCell('小辛辣光復店', 'I2'), db.getCell('小辛辣光復店', 'I2'
 check(String(db.getCell('小辛辣光復店', 'I2')).indexOf('牛肉片') !== -1,
   '小辛辣光復店 1 月異常文原位未動');
 
+// 防日期誤判：年月／稽核日期／提交時間欄必須被鎖成純文字
+// （真試算表會把 '2026-01' 自動轉成 Date，前端月份比對就全部落空——2026-08-01 實測踩過）
+(function () {
+  var rec = db._textCols['稽核紀錄'] || [];
+  var det = db._textCols['抽查明細'] || [];
+  ['A', 'C', 'E', 'O'].forEach(function (c) {
+    check(rec.indexOf(c) !== -1, '稽核紀錄 ' + c + ' 欄鎖為純文字');
+  });
+  ['A', 'C'].forEach(function (c) {
+    check(det.indexOf(c) !== -1, '抽查明細 ' + c + ' 欄鎖為純文字');
+  });
+})();
+
 // setup 重跑冪等
 var before = JSON.stringify(db.getRows('金山店'));
 gas.setup_(db);
