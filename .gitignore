@@ -6,5 +6,8 @@ test/t6-print-preview.png
 test/shots/
 apps-script/Admin.gs
 .clasp.json
-guides/
 docs/guide-shots/
+# guides/ 內的 HTML 手冊要對外（Eason 2026-08-01 要連結），故不排除；
+# PDF 與預覽圖不上傳（PDF 用傳檔的就好，省 repo 體積）
+guides/*.pdf
+guides/preview-*.png
