@@ -53,7 +53,7 @@ def main():
         # ---- scenario (1): 單月報告 sxl-gf 2026-01 ----
         page = browser.new_page()
         page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
-        page.goto(f"{BASE}/test/t6-harness.html?store=sxl-gf&month=2026-01")
+        page.goto(f"{BASE}/test/t6-harness.html?mode=local&store=sxl-gf&month=2026-01")
         page.wait_for_function("window.__t6Ready === true")
         page.wait_for_selector(".report-print-area")
 
@@ -71,7 +71,7 @@ def main():
         # ---- scenario (2): ck 2026-04 輪休 ----
         page2 = browser.new_page()
         page2.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
-        page2.goto(f"{BASE}/test/t6-harness.html?store=ck&month=2026-04")
+        page2.goto(f"{BASE}/test/t6-harness.html?mode=local&store=ck&month=2026-04")
         page2.wait_for_function("window.__t6Ready === true")
         page2.wait_for_selector(".report-print-area")
         body2 = page2.inner_text("body")
@@ -80,7 +80,7 @@ def main():
         # ---- scenario (3): 年度總表 sxl-gf ----
         page3 = browser.new_page()
         page3.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
-        page3.goto(f"{BASE}/test/t6-harness.html")
+        page3.goto(f"{BASE}/test/t6-harness.html?mode=local")
         page3.wait_for_function("window.__t6Ready === true")
         # 切到年度總表、選 sxl-gf
         page3.click(".mode-btn[data-mode='annual']")
@@ -97,7 +97,7 @@ def main():
         # ---- scenario (4): emulate_media print → nav 隱藏；console 無 error ----
         page4 = browser.new_page()
         page4.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
-        page4.goto(f"{BASE}/test/t6-harness.html?store=sxl-gf&month=2026-01")
+        page4.goto(f"{BASE}/test/t6-harness.html?mode=local&store=sxl-gf&month=2026-01")
         page4.wait_for_function("window.__t6Ready === true")
         page4.wait_for_selector(".report-print-area")
         page4.emulate_media(media="print")

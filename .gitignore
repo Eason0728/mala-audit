@@ -6,3 +6,5 @@ test/t6-print-preview.png
 test/shots/
 apps-script/Admin.gs
 .clasp.json
+guides/
+docs/guide-shots/

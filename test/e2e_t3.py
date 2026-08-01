@@ -69,6 +69,11 @@ def main():
             page.goto(BASE_URL)
             page.wait_for_selector("#login-code", timeout=8000)
             check(page.is_visible("#login-code"), "(1) 開頁要求輸入通行碼（已上鎖）")
+            check(not page.is_visible("#main-nav"), "(1) 登入前導覽列不露出")
+            # 未登入時就算硬點分頁也不能跳過登入
+            page.evaluate("window.App.navigate('overview')")
+            page.wait_for_timeout(300)
+            check(page.is_visible("#login-code"), "(1) 未登入時 navigate 無效，仍停在登入畫面")
             page.fill("#login-code", "5678")
             page.click("#login-submit")
             page.wait_for_selector("#main-nav:not([hidden])", timeout=8000)

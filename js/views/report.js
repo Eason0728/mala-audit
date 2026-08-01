@@ -122,7 +122,7 @@
     var record = findRecord(app, store, month);
 
     var head = '<div class="report-header">' +
-      '<h3>' + esc(name) + ' ' + esc(monthLbl) + ' 月初盤點及金庫抽查報告</h3>';
+      '<h3>' + esc(name) + ' ' + esc(monthLbl) + ' 稽核報告</h3>';
 
     if (!record) {
       head += '<p class="report-empty">無稽核紀錄</p></div>';

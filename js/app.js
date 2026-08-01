@@ -71,6 +71,8 @@
     // ---- 存 params 後只顯示該 section 並呼叫對應 Views.<tab>.render ----
     navigate: function (tab, params) {
       if (NAV_TABS.indexOf(tab) === -1) return;
+      // 未登入不得離開登入畫面（導覽列本來就藏著，這是第二道保險）
+      if (!this.state.role) return;
       this.state.tab = tab;
       this.state.params = params || {};
       this.showSection(tab);
@@ -125,9 +127,8 @@
       }
     },
 
-    // ---- 初始化：不需通行碼（Eason 2026-08-01 指定），開頁即直接載入總覽 ----
-    // 之後若要恢復登入：Config.REQUIRE_PASSCODE 改 true（後端 Code.gs 同名常數也要改），
-    // 本函式會改走 Views.login 的登入畫面。
+    // ---- 初始化：REQUIRE_PASSCODE=true（目前）走登入畫面；false 則開頁直接載入總覽 ----
+    // 兩邊的開關（本檔讀 Config、後端讀 Code.gs 同名常數）必須一致。
     init: function () {
       this.bindNav();
       if (root.Config && root.Config.REQUIRE_PASSCODE) {

@@ -46,6 +46,11 @@ body {
   font-weight: 600;
 }
 
+/* [hidden] 要能蓋掉自訂的 display，否則登入前導覽列會露出來（2026-08-01 拍手冊時發現）*/
+[hidden] {
+  display: none !important;
+}
+
 #main-nav {
   display: flex;
   background: var(--color-primary-dark);
