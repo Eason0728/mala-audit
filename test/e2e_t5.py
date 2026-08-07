@@ -44,6 +44,10 @@ def fill_all_items(page, anomaly_count=2):
     total = len(page.query_selector_all('#audit-items li.audit-item-row'))
     for idx in range(total):
         row_sel = '#audit-items li.audit-item-row:nth-of-type(%d) ' % (idx + 1)
+        # 品項庫可能抽到單位留空的項目（真實品項庫有 58 項這樣），該列會多一個單位欄要補
+        unit_box = page.query_selector(row_sel + '.audit-item-unit-input')
+        if unit_box:
+            unit_box.fill('包')
         page.fill(row_sel + '.audit-book-qty', '10')
         if idx < anomaly_count:
             page.fill(row_sel + '.audit-recount-qty', '12')

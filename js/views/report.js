@@ -62,6 +62,31 @@
     return details.filter(function (d) { return d.record_key === recordKey; });
   }
 
+  // 預設店別：沿用稽核填寫最後選的那家（AuditState 是本次 session 的，localStorage 是跨 session 的）；
+  // 都沒有才退回第一家。2026-08-07 Eason 指示——原本固定第一家（小辛辣光復），
+  // 剛填完墨竹亭進報告會看到別家的空白月份，很容易誤判成「紀錄不見了」。
+  function defaultStore(app) {
+    var stores = storeList(app);
+    var codes = stores.map(function (s) { return s.code; });
+    var fromAudit = root.AuditState && root.AuditState.store;
+    if (fromAudit && codes.indexOf(fromAudit) !== -1) return fromAudit;
+    try {
+      var saved = localStorage.getItem('audit_last_store');
+      if (saved && codes.indexOf(saved) !== -1) return saved;
+    } catch (e) { /* 儲存空間不可用時忽略 */ }
+    return codes[0] || null;
+  }
+
+  // 預設月份：看的年份就是今年 → 當月；看的是別的年份 → 該年一月（原行為）。
+  function defaultMonth(app) {
+    var year = getYear(app);
+    var now = new Date();
+    if (String(now.getFullYear()) === String(year)) {
+      return year + '-' + pad2(now.getMonth() + 1);
+    }
+    return year + '-01';
+  }
+
   // 依 app.state.params 初始化選擇；params 帶 store+month 視為「從總覽點格子進來」，強制切到單月模式
   function initFromParams(app) {
     var params = (app.state && app.state.params) || {};
@@ -74,11 +99,10 @@
     }
     lastParamsKey = key;
 
-    var stores = storeList(app);
-    if (!state.store && stores.length) state.store = stores[0].code;
+    if (!state.store) state.store = defaultStore(app);
     if (!state.annualStore) state.annualStore = state.store;
     if (!state.month) {
-      state.month = getYear(app) + '-01';
+      state.month = defaultMonth(app);
     }
   }
 

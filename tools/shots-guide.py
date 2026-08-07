@@ -64,6 +64,10 @@ def fill_rows(page, count, anomaly_idx=(0,)):
     total = len(page.query_selector_all('#audit-items li.audit-item-row'))
     for idx in range(min(count, total)):
         sel = '#audit-items li.audit-item-row:nth-of-type(%d) ' % (idx + 1)
+        # 抽到品項庫沒填單位的項目時，該列會多一個單位欄，不補就送不出去
+        unit_box = page.query_selector(sel + '.audit-item-unit-input')
+        if unit_box:
+            unit_box.fill('包')
         page.fill(sel + '.audit-book-qty', '12')
         if idx in anomaly_idx:
             page.fill(sel + '.audit-recount-qty', '10')

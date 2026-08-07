@@ -33,6 +33,7 @@
   'use strict';
 
   var MODE_KEY = 'audit_fill_mode';   // localStorage：記住上次選的填寫方式
+  var LAST_STORE_KEY = 'audit_last_store'; // localStorage：記住上次稽核的是哪家店（報告頁沿用）
   var MODE_FULL = 'full';
   var MODE_ANOMALY = 'anomaly';
 
@@ -112,6 +113,15 @@
     '.audit-verdict-btn.active,.audit-vault-btn.active,.audit-mode-btn.active{background:var(--color-primary);color:#fff;}' +
     '#audit-mode-hint{margin:8px 0 0;font-size:0.85rem;color:var(--color-text-muted);}' +
     '#audit-add-hint{margin:6px 0 0;font-size:0.8rem;color:var(--color-text-muted);}' +
+    '.audit-draft-row{display:flex;gap:8px;align-items:center;padding:8px 0;' +
+    'border-bottom:1px solid var(--color-border);}' +
+    '.audit-draft-row:last-child{border-bottom:none;}' +
+    '.audit-draft-resume{flex:1;text-align:left;padding:8px 10px;border-radius:var(--radius);' +
+    'border:1px solid var(--color-primary);background:var(--color-surface);color:var(--color-primary);font-weight:600;}' +
+    '.audit-draft-meta{display:block;font-weight:400;font-size:0.8rem;color:var(--color-text-muted);margin-top:2px;}' +
+    '.audit-draft-drop{flex:none;padding:8px 10px;border-radius:var(--radius);' +
+    'border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text-muted);}' +
+    '.audit-unit-fix{flex:none;width:88px;}' +
     '#audit-count-warning{border-radius:8px;padding:8px 12px;margin:var(--gap) 0 0;}' +
     '#audit-count-warning.warn{color:#8a6d00;background:#fff6db;border:1px solid #f0dfa0;}' +
     '#audit-count-warning.info{color:var(--color-text);background:var(--color-primary-light);border:1px solid transparent;}' +
@@ -148,9 +158,18 @@
 
     var months = buildMonthList(year);
 
-    var defaultStore = (params.store && stores.some(function (s) { return s.code === params.store; }))
-      ? params.store
-      : ((stores[0] && stores[0].code) || '');
+    // 預設店：從總覽點格子進來 → 那一格的店；否則沿用上次填的那家（草稿才回得去，
+    // 2026-08-07 Eason 回報「填一半跳出去就被重置」的真正原因是這裡固定跳回第一家）。
+    function pickDefaultStore() {
+      var codes = stores.map(function (s) { return s.code; });
+      if (params.store && codes.indexOf(params.store) !== -1) return params.store;
+      try {
+        var saved = localStorage.getItem(LAST_STORE_KEY);
+        if (saved && codes.indexOf(saved) !== -1) return saved;
+      } catch (e) { /* 儲存空間不可用時忽略 */ }
+      return codes[0] || '';
+    }
+    var defaultStore = pickDefaultStore();
 
     var defaultMonth = params.month
       ? params.month
@@ -172,6 +191,10 @@
         sampleSize: SAMPLE_SIZE,
         items: items.slice()
       };
+      // 報告頁沿用這家店當預設，省得每次進報告都要再選一次
+      try {
+        if (currentStore) localStorage.setItem(LAST_STORE_KEY, currentStore);
+      } catch (e) { /* 儲存空間不可用時忽略 */ }
     }
 
     function isAnomalyMode() {
@@ -184,7 +207,7 @@
     function normalizeItem(it) {
       return {
         name: it.name,
-        unit: it.unit,
+        unit: it.unit || '',   // 品項庫可能沒填單位（58 項留空），統一成空字串好判斷
         lastDrawn: it.lastDrawn || null,
         book_qty: it.book_qty !== undefined && it.book_qty !== null ? it.book_qty : '',
         recount_qty: it.recount_qty !== undefined && it.recount_qty !== null ? it.recount_qty : '',
@@ -263,6 +286,12 @@
         }).join('') +
         '</select>' +
       '</div>' +
+      '<div class="card" id="audit-drafts-card" hidden>' +
+        '<h3 style="margin:0 0 8px;font-size:1rem;">未送出的草稿</h3>' +
+        '<p style="margin:0 0 8px;font-size:0.85rem;color:var(--color-text-muted);">' +
+          '填到一半離開的內容都還在，點一下就接著填。</p>' +
+        '<ul id="audit-drafts-list" style="list-style:none;padding:0;margin:0;"></ul>' +
+      '</div>' +
       '<div class="card">' +
         '<label>填寫方式</label>' +
         '<div class="audit-choice-group" id="audit-mode-group">' +
@@ -305,6 +334,8 @@
 
     var storeSelect = el.querySelector('#audit-store');
     var monthSelect = el.querySelector('#audit-month');
+    var draftsCard = el.querySelector('#audit-drafts-card');
+    var draftsList = el.querySelector('#audit-drafts-list');
     var modeGroup = el.querySelector('#audit-mode-group');
     var modeHint = el.querySelector('#audit-mode-hint');
     var drawBtn = el.querySelector('#audit-draw');
@@ -444,7 +475,9 @@
             '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
               '<span>' +
                 '<span class="audit-item-name">' + escapeHtml(it.name) + '</span>' +
-                '<span class="audit-item-unit" style="color:var(--color-text-muted);margin-left:4px;">(' + escapeHtml(it.unit) + ')</span>' +
+                (it.unit
+                  ? '<span class="audit-item-unit" style="color:var(--color-text-muted);margin-left:4px;">(' + escapeHtml(it.unit) + ')</span>'
+                  : '<span class="audit-item-unit" style="color:#a3352a;margin-left:4px;">(缺單位)</span>') +
                 flag +
               '</span>' +
               '<span style="white-space:nowrap;">' +
@@ -457,6 +490,11 @@
               '<div class="audit-item-qty-row">' +
                 '<label>門市盤點數<input type="number" step="any" inputmode="decimal" class="audit-book-qty" value="' + qtyAttr(it.book_qty) + '"></label>' +
                 '<label>會計複盤數<input type="number" step="any" inputmode="decimal" class="audit-recount-qty" value="' + qtyAttr(it.recount_qty) + '"></label>' +
+                // 品項庫有 58 項當初從 PDF 解析時沒印單位、留空，抽到這種項目異常說明會少一塊
+                // （2026-08-07 實查：sxl-gf 八月的台灣白芝麻粒就印成「盤點2.8，覆盤2」）。
+                // 缺單位的當場補，不用回試算表改。
+                (it.unit ? '' :
+                  '<label class="audit-unit-fix">單位<input type="text" class="audit-item-unit-input" value="" placeholder="例：包"></label>') +
               '</div>' +
               // 只填異常項模式下每一項都是異常，不需要（也不該）再核定一次
               (anomalyMode ? '' :
@@ -521,8 +559,12 @@
       var hit = libraryItem(name);
       var unit = hit ? (addUnitInput.value.trim() || hit.unit || '') : addUnitInput.value.trim();
       // 單位不能省：異常說明要組「盤點27盒」這種字，沒單位那行會缺一塊。
+      // 兩種缺法要分開講——品項庫根本沒這項，跟品項庫有但當初單位就留空（58 項是這樣），
+      // 講錯會讓人以為自己打錯字。
       if (!unit) {
-        showAddError('「' + name + '」不在品項庫，請一併填單位（例：包、盒、公斤）');
+        showAddError(hit
+          ? '品項庫沒有填「' + name + '」的單位，請補一個（例：包、盒、公斤）'
+          : '「' + name + '」不在品項庫，請一併填單位（例：包、盒、公斤）');
         addUnitInput.focus();
         return;
       }
@@ -587,6 +629,9 @@
       }
       items.forEach(function (it, idx) {
         var label = (idx + 1) + '.' + it.name;
+        // 單位不分來源都要有：品項庫本身就有 58 項單位留空，抽到那些項目
+        // 異常說明會印成「盤點2.8，覆盤2」少一塊（2026-08-07 實查到真實案例）
+        if (!it.unit || !String(it.unit).trim()) errors.push(label + '：缺單位，請在該列補上');
         if (isBlankNumber(it.book_qty)) errors.push(label + '：門市盤點數未填');
         if (isBlankNumber(it.recount_qty)) errors.push(label + '：會計複盤數未填');
         if (anomalyMode) {
@@ -790,6 +835,7 @@
       renderMode();
       renderItems();
       renderVault();
+      renderDrafts();
       hideSubmitError();
       hideOverwriteDialog();
       retryBtn.hidden = true;
@@ -806,6 +852,100 @@
       mode = next;
       persistMode(mode);
       tryRestoreOrReset();
+    });
+
+    // ---- 未送出草稿一覽（2026-08-07 新增）----
+    // 草稿一直都有存，但重開時只會還原「當下選的店月」那一份，其他份看不到，
+    // 用起來就像「填一半跳出去內容不見了」。這裡把所有還沒送出的草稿列出來，點一下跳回去。
+
+    function draftHasContent(payload) {
+      if (!payload) return false;
+      var items = payload.items || [];
+      if (items.length) return true;
+      var v = payload.vault || {};
+      return !!(v.change_fund || v.petty_cash || v.tip_amount || v.tip_match || v.note);
+    }
+
+    function listDrafts() {
+      var out = [];
+      try {
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (!k || k.indexOf('draft_') !== 0) continue;
+          var payload = null;
+          try { payload = JSON.parse(localStorage.getItem(k)); } catch (e) { payload = null; }
+          if (!payload || !payload.store || !payload.month) continue;
+          if (!draftHasContent(payload)) continue;
+          out.push({
+            key: k,
+            store: payload.store,
+            month: payload.month,
+            mode: /_anomaly$/.test(k) ? MODE_ANOMALY : MODE_FULL,
+            count: (payload.items || []).length
+          });
+        }
+      } catch (e) { /* 儲存空間不可用時當作沒有草稿 */ }
+      out.sort(function (a, b) {
+        if (a.month !== b.month) return a.month < b.month ? 1 : -1; // 新的月份排前面
+        return a.store < b.store ? -1 : 1;
+      });
+      return out;
+    }
+
+    function storeLabel(code) {
+      var hit = stores.filter(function (s) { return s.code === code; })[0];
+      return hit ? hit.name : code;
+    }
+
+    function renderDrafts() {
+      // 目前正在填的這一份不列（它就在畫面上），只列「其他還沒送出的」
+      var others = listDrafts().filter(function (d) {
+        return !(d.store === currentStore && d.month === currentMonth && d.mode === mode);
+      });
+      if (!others.length) {
+        draftsCard.hidden = true;
+        draftsList.innerHTML = '';
+        return;
+      }
+      draftsCard.hidden = false;
+      draftsList.innerHTML = others.map(function (d) {
+        var modeTxt = d.mode === MODE_ANOMALY ? '只填異常項' : '完整 ' + SAMPLE_SIZE + ' 項';
+        return '<li class="audit-draft-row">' +
+          '<button type="button" class="audit-draft-resume" data-key="' + escapeHtml(d.key) + '">' +
+            escapeHtml(storeLabel(d.store)) + '　' + escapeHtml(Format.monthLabel(d.month)) +
+            '<span class="audit-draft-meta">' + escapeHtml(modeTxt) + '·已填 ' + d.count + ' 項</span>' +
+          '</button>' +
+          '<button type="button" class="audit-draft-drop" data-key="' + escapeHtml(d.key) + '">丟棄</button>' +
+        '</li>';
+      }).join('');
+    }
+
+    function resumeDraft(key) {
+      var payload = null;
+      try { payload = JSON.parse(localStorage.getItem(key)); } catch (e) { payload = null; }
+      if (!payload) return;
+      saveDraft();                       // 先保住目前這一份
+      currentStore = payload.store;
+      currentMonth = payload.month;
+      mode = /_anomaly$/.test(key) ? MODE_ANOMALY : MODE_FULL;
+      persistMode(mode);
+      storeSelect.value = currentStore;
+      // 跨年份的草稿：本畫面只列當年的月份，選不到就不動月份下拉（清單仍會正確還原）
+      monthSelect.value = currentMonth;
+      renderDatalist();
+      tryRestoreOrReset();
+      el.scrollIntoView ? el.scrollIntoView({ block: 'start' }) : null;
+    }
+
+    draftsList.addEventListener('click', function (e) {
+      var resumeBtn = e.target.closest ? e.target.closest('.audit-draft-resume') : null;
+      var dropBtn = e.target.closest ? e.target.closest('.audit-draft-drop') : null;
+      if (resumeBtn) {
+        resumeDraft(resumeBtn.getAttribute('data-key'));
+      } else if (dropBtn) {
+        try { localStorage.removeItem(dropBtn.getAttribute('data-key')); } catch (err) { /* 忽略 */ }
+        renderDrafts();
+      }
     });
 
     // ---- 事件：選店／選月 ----
@@ -913,6 +1053,11 @@
       } else if (target.classList.contains('audit-item-note')) {
         items[idx].note = target.value;
         saveDraft();
+      } else if (target.classList.contains('audit-item-unit-input')) {
+        // 不整列重繪，否則打一個字就失焦；單位顯示等下次重繪再跟上
+        items[idx].unit = target.value;
+        saveDraft();
+        syncAuditState();
       }
     });
 

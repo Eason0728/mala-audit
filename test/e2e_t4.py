@@ -77,12 +77,18 @@ def main():
         rows = page.query_selector_all('#audit-items li.audit-item-row')
         check(len(rows) == 20, '隨機抽 20 → #audit-items 有 20 列（實際 %d）' % len(rows))
 
-        # data-item / data-unit 屬性存在
+        # data-item / data-unit 屬性存在。
+        # data-unit 允許是空字串——品項庫本來就有單位留空的項目（真實庫裡 58 項），
+        # 那種列會在畫面上標「(缺單位)」並要求當場補，送出前才擋。屬性本身仍要在。
         has_attrs = all(
-            r.get_attribute('data-item') and r.get_attribute('data-unit')
+            r.get_attribute('data-item') and r.get_attribute('data-unit') is not None
             for r in rows
         )
-        check(has_attrs, '每列皆有 data-item / data-unit 屬性')
+        check(has_attrs, '每列皆有 data-item / data-unit 屬性（data-unit 可為空）')
+        blank_units = [r.get_attribute('data-item') for r in rows
+                       if r.get_attribute('data-unit') == '']
+        if blank_units:
+            print('  （本次抽到 %d 項品項庫沒填單位的：%s）' % (len(blank_units), '、'.join(blank_units)))
 
         # ---- 點「換一項」該列品項變更且總數不變 ----
         first_row = rows[0]
