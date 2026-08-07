@@ -58,9 +58,13 @@ def store_item_names(page, store='sxl-gf', n=25):
     """, {'store': store, 'n': n})
 
 
-def add_anomaly(page, name, book='10', recount='12', reason='損耗未記'):
-    """在只填異常項模式下加入一項並填完：加入會整段重繪，用 nth-of-type 重新定位。"""
+def add_anomaly(page, name, book='10', recount='12', reason='損耗未記', unit=None):
+    """在只填異常項模式下加入一項並填完：加入會整段重繪，用 nth-of-type 重新定位。
+    unit 給值＝自訂品項（品項庫沒有）；不給就靠品項庫自動帶單位。"""
     page.fill('#audit-add-input', name)
+    page.wait_for_timeout(60)
+    if unit is not None:
+        page.fill('#audit-add-unit', unit)
     page.click('#audit-add-btn')
     page.wait_for_timeout(80)
     idx = len(page.query_selector_all('#audit-items li.audit-item-row'))
@@ -131,14 +135,46 @@ def main():
         check(page.evaluate("window.AuditState.mode") == 'anomaly',
               '(1) AuditState.mode 同步為 anomaly')
 
-        # ================= (7) 品項庫沒有的名稱 =================
-        page.fill('#audit-add-input', '這個品項不存在XYZ')
+        # ================= (7) 品項建立不綁定品項庫 =================
+        # 7a 品項庫沒有的名稱，沒填單位 → 擋下並要求填單位（不是擋你加，是要單位）
+        page.fill('#audit-add-input', '臨時自訂品項XYZ')
+        page.wait_for_timeout(80)
+        hint = page.inner_text('#audit-add-hint')
+        check('品項庫沒有' in hint and '單位' in hint,
+              '(7) 打到品項庫沒有的名稱會提示可直接加入、請填單位（"%s"）' % hint)
         page.click('#audit-add-btn')
         page.wait_for_timeout(120)
-        check(page.get_attribute('#audit-add-error', 'hidden') is None,
-              '(7) 品項庫沒有的名稱會顯示錯誤，不是靜靜沒反應')
+        check(page.get_attribute('#audit-add-error', 'hidden') is None and
+              '單位' in page.inner_text('#audit-add-error'),
+              '(7) 沒填單位時擋下並指名要單位')
         check(len(page.query_selector_all('#audit-items li.audit-item-row')) == 0,
-              '(7) 錯誤名稱沒有被加進清單')
+              '(7) 此時還沒加進清單')
+
+        # 7b 填了單位 → 品項庫沒有也加得進來
+        page.fill('#audit-add-unit', '桶')
+        page.click('#audit-add-btn')
+        page.wait_for_timeout(150)
+        added = page.evaluate("window.AuditState.items.map(i => i.name + '|' + i.unit)")
+        check(added == ['臨時自訂品項XYZ|桶'],
+              '(7) 自訂品項（品項庫沒有）加得進來且帶自訂單位（實際 %s）' % added)
+        check(page.get_attribute('#audit-add-error', 'hidden') is not None,
+              '(7) 加成功後錯誤訊息收起')
+
+        # 7c 品項庫有的名稱 → 單位自動帶入，不用自己打
+        page.fill('#audit-add-input', names[0])
+        page.wait_for_timeout(120)
+        auto_unit = page.eval_on_selector('#audit-add-unit', 'e => e.value')
+        check(auto_unit != '', '(7) 打到品項庫有的名稱時單位自動帶入（"%s"）' % auto_unit)
+        check('自動帶入' in page.inner_text('#audit-add-hint'),
+              '(7) 並提示單位是自動帶的')
+        page.fill('#audit-add-input', '')
+        page.fill('#audit-add-unit', '')
+        page.wait_for_timeout(80)
+        # 這一項自訂的不列入後面的計算，先移除
+        page.click('#audit-items li.audit-item-row:nth-of-type(1) .audit-item-remove')
+        page.wait_for_timeout(120)
+        check(len(page.query_selector_all('#audit-items li.audit-item-row')) == 0,
+              '(7) 清掉自訂品項，回到空清單繼續後面的測試')
 
         # ================= (2) 1 項異常 → 95% =================
         add_anomaly(page, names[0])

@@ -40,6 +40,17 @@ var sxlDetails = MockData.details.filter(function (d) { return d.store === 'sxl-
 
 assertTrue(sxlItems.length > 20, 'sxl-gf 品項庫 > 20 項（實際 ' + sxlItems.length + '）');
 
+// --- lastDrawnOf：手動加入品項（含品項庫沒有的自訂品項）查歷史標記 ---
+var lastDrawnDetails = [
+  { item: '鴨血', month: '2026-01' },
+  { item: '鴨血', month: '2026-06' },
+  { item: '自訂沒在庫裡的品項', month: '2026-03' }
+];
+assertEqual(Sampling.lastDrawnOf('鴨血', lastDrawnDetails), '2026-06', 'lastDrawnOf 取最近月份');
+assertEqual(Sampling.lastDrawnOf('自訂沒在庫裡的品項', lastDrawnDetails), '2026-03',
+  'lastDrawnOf 對品項庫沒有的自訂品項一樣查得到');
+assertEqual(Sampling.lastDrawnOf('從沒出現過', lastDrawnDetails), null, 'lastDrawnOf 沒抽過回 null');
+
 // --- drawSample：n=20，數量正確、不重複 ---
 var sample20 = Sampling.drawSample(sxlItems, sxlDetails, 20);
 assertEqual(sample20.length, 20, 'drawSample n=20 回傳 20 項');

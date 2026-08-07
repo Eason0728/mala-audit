@@ -111,6 +111,7 @@
     'border:1px solid var(--color-primary);background:var(--color-surface);color:var(--color-primary);font-weight:600;}' +
     '.audit-verdict-btn.active,.audit-vault-btn.active,.audit-mode-btn.active{background:var(--color-primary);color:#fff;}' +
     '#audit-mode-hint{margin:8px 0 0;font-size:0.85rem;color:var(--color-text-muted);}' +
+    '#audit-add-hint{margin:6px 0 0;font-size:0.8rem;color:var(--color-text-muted);}' +
     '#audit-count-warning{border-radius:8px;padding:8px 12px;margin:var(--gap) 0 0;}' +
     '#audit-count-warning.warn{color:#8a6d00;background:#fff6db;border:1px solid #f0dfa0;}' +
     '#audit-count-warning.info{color:var(--color-text);background:var(--color-primary-light);border:1px solid transparent;}' +
@@ -272,10 +273,14 @@
       '</div>' +
       '<div class="card">' +
         '<button type="button" id="audit-draw" class="btn">隨機抽 ' + SAMPLE_SIZE + ' 項</button>' +
-        '<div id="audit-add-row" style="display:flex;gap:8px;margin-top:var(--gap);align-items:flex-start;">' +
-          '<input type="text" id="audit-add-input" list="audit-item-datalist" placeholder="輸入品項名稱加入" style="flex:1;">' +
+        '<div id="audit-add-row" style="margin-top:var(--gap);">' +
+          '<input type="text" id="audit-add-input" list="audit-item-datalist" placeholder="輸入品項名稱加入">' +
           '<datalist id="audit-item-datalist"></datalist>' +
-          '<button type="button" id="audit-add-btn" class="btn btn-secondary" style="width:auto;white-space:nowrap;">加入品項</button>' +
+          '<div style="display:flex;gap:8px;margin-top:8px;align-items:flex-start;">' +
+            '<input type="text" id="audit-add-unit" placeholder="單位" style="width:88px;flex:none;">' +
+            '<button type="button" id="audit-add-btn" class="btn btn-secondary" style="flex:1;white-space:nowrap;">加入品項</button>' +
+          '</div>' +
+          '<p id="audit-add-hint"></p>' +
         '</div>' +
         '<p id="audit-add-error" class="status-danger" hidden style="margin:8px 0 0;"></p>' +
         '<p id="audit-count-warning" hidden></p>' +
@@ -304,8 +309,10 @@
     var modeHint = el.querySelector('#audit-mode-hint');
     var drawBtn = el.querySelector('#audit-draw');
     var addInput = el.querySelector('#audit-add-input');
+    var addUnitInput = el.querySelector('#audit-add-unit');
     var addBtn = el.querySelector('#audit-add-btn');
     var addErrorEl = el.querySelector('#audit-add-error');
+    var addHintEl = el.querySelector('#audit-add-hint');
     var datalist = el.querySelector('#audit-item-datalist');
     var itemsEl = el.querySelector('#audit-items');
     var warningEl = el.querySelector('#audit-count-warning');
@@ -409,6 +416,9 @@
         addBtn.textContent = '加入品項';
       }
       hideAddError();
+      addHintEl.textContent = '';
+      addUnitInput.value = '';
+      if (addUnitInput.dataset) addUnitInput.dataset.fromLibrary = '0';
     }
 
     function reasonOptionsHtml(selectedReason) {
@@ -472,15 +482,35 @@
       renderItems();
     }
 
+    // 找該店品項庫裡同名的項目；找不到回 null（＝自訂品項）
+    function libraryItem(name) {
+      return currentStoreItems().filter(function (it) { return it.name === name; })[0] || null;
+    }
+
+    // 名稱框有動就更新單位：打到品項庫有的名稱自動帶單位，
+    // 打庫裡沒有的就把欄位讓出來自己填（Eason 2026-08-07：品項建立不綁定品項庫）。
+    function syncUnitField() {
+      var name = addInput.value.trim();
+      var hit = name ? libraryItem(name) : null;
+      if (hit) {
+        addUnitInput.value = hit.unit || '';
+        addHintEl.textContent = '品項庫裡有這一項，單位自動帶入（可改）';
+      } else if (name) {
+        if (addUnitInput.dataset && addUnitInput.dataset.fromLibrary === '1') {
+          addUnitInput.value = '';
+        }
+        addHintEl.textContent = '品項庫沒有這一項，可以直接加入，請填單位（例：包、盒、公斤）';
+      } else {
+        addHintEl.textContent = '';
+      }
+      if (addUnitInput.dataset) addUnitInput.dataset.fromLibrary = hit ? '1' : '0';
+    }
+
+    // 加入一項：品項庫有沒有都能加，差別只在單位是自動帶還是自己填。
     function addItemByName(name) {
       hideAddError();
-      if (!name) return;
-      var storeItems = currentStoreItems();
-      var target = storeItems.filter(function (it) { return it.name === name; })[0];
-      // 不在該店品項庫就加不進來。原本是靜靜忽略，但只填異常項模式下打字是主要輸入方式，
-      // 靜靜沒反應會讓人以為加進去了——改成明講，並指出要去品項庫補。
-      if (!target) {
-        showAddError('品項庫沒有「' + name + '」，請確認名稱，或先到試算表「品項庫」分頁補這一項');
+      if (!name) {
+        showAddError('請先輸入品項名稱');
         return;
       }
       var currentNames = items.map(function (it) { return it.name; });
@@ -488,13 +518,24 @@
         showAddError('「' + name + '」已在清單中');
         return;
       }
-      // 重用 redrawOne：候選池只放這一個目標品項，即可拿到含 lastDrawn 的結果，不必另開純函式
-      var picked = Sampling.redrawOne(currentNames, [target], currentStoreDetails());
-      if (picked) {
-        items = items.concat([normalizeItem(picked)]);
-        renderItems();
-        addInput.value = '';
+      var hit = libraryItem(name);
+      var unit = hit ? (addUnitInput.value.trim() || hit.unit || '') : addUnitInput.value.trim();
+      // 單位不能省：異常說明要組「盤點27盒」這種字，沒單位那行會缺一塊。
+      if (!unit) {
+        showAddError('「' + name + '」不在品項庫，請一併填單位（例：包、盒、公斤）');
+        addUnitInput.focus();
+        return;
       }
+      items = items.concat([normalizeItem({
+        name: name,
+        unit: unit,
+        lastDrawn: Sampling.lastDrawnOf(name, currentStoreDetails())
+      })]);
+      renderItems();
+      addInput.value = '';
+      addUnitInput.value = '';
+      if (addUnitInput.dataset) addUnitInput.dataset.fromLibrary = '0';
+      addHintEl.textContent = '';
     }
 
     // ---- 金庫區 ----
@@ -790,7 +831,24 @@
       addItemByName(addInput.value.trim());
     });
 
+    addInput.addEventListener('input', syncUnitField);
+    addInput.addEventListener('change', syncUnitField);
+
     addInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        // 名稱打完直接按 Enter：庫裡有的就直接加，庫裡沒有的先把游標送去單位欄
+        syncUnitField();
+        if (!addUnitInput.value.trim()) {
+          hideAddError();
+          addUnitInput.focus();
+          return;
+        }
+        addItemByName(addInput.value.trim());
+      }
+    });
+
+    addUnitInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') {
         e.preventDefault();
         addItemByName(addInput.value.trim());

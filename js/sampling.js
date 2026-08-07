@@ -13,6 +13,9 @@
 // redrawOne(currentNames, storeItems, storeDetails)
 //   currentNames = 目前清單中的品項名稱陣列（換掉的那項也算在內，避免換成自己）
 //   回傳一個不在 currentNames 裡的 {name, unit, lastDrawn}；沒得換回 null。
+//
+// lastDrawnOf(name, storeDetails)
+//   單獨查某品項的歷史標記，給「手動加入品項」用（自訂品項不在品項庫、抽不出來）。
 
 (function (root) {
   'use strict';
@@ -80,7 +83,10 @@
 
   var Sampling = {
     drawSample: drawSample,
-    redrawOne: redrawOne
+    redrawOne: redrawOne,
+    // 手動加入品項時要單獨查歷史標記——加入的品項可能不在品項庫（自訂品項），
+    // 沒有候選池可抽，只能直接查明細。
+    lastDrawnOf: findLastDrawn
   };
 
   if (typeof module !== 'undefined' && module.exports) {
