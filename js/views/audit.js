@@ -18,12 +18,45 @@
 //   草稿：localStorage key=`draft_{record_key}`，每次輸入即存；選同店同月自動還原；送出成功才清。
 //   送出：前端驗證 → 覆蓋確認（若同 record_key 已有紀錄）→ Api.submitAudit → 成功清草稿＋
 //         app.reload()＋navigate('report',{store,month})；失敗草稿保留＋顯示「送出失敗」＋「重試送出」。
+//
+// ---- 填寫方式兩種模式（2026-08-07 新增）----
+//   'full'（完整 N 項，原行為）：抽滿 SAMPLE_SIZE 項逐項核定正確／異常，
+//                              分母＝實際清單項數。
+//   'anomaly'（只填異常項）    ：只輸入異常的品項，其餘視同正確，
+//                              分母固定＝Config.SAMPLE_SIZE（預設 20）。
+//                              例：只填 1 項異常 → 19/20 → 正確率 95%。
+//   模式記在 localStorage['audit_fill_mode']（跨店月、跨 session 記住上次選的）。
+//   兩模式的草稿分開存（anomaly 模式 key 多後綴 `_anomaly`）：切模式不會弄丟另一邊已填的內容，
+//   切回去原樣還在。送出成功時兩把 key 都清掉，避免舊草稿之後又冒出來。
 
 (function (root) {
   'use strict';
 
+  var MODE_KEY = 'audit_fill_mode';   // localStorage：記住上次選的填寫方式
+  var MODE_FULL = 'full';
+  var MODE_ANOMALY = 'anomaly';
+
   function pad2(n) {
     return (n < 10 ? '0' : '') + n;
+  }
+
+  // 標準抽查項數：唯一來源是 Config.SAMPLE_SIZE；讀不到時保守回 20
+  function sampleSize(root_) {
+    var n = root_.Config && Number(root_.Config.SAMPLE_SIZE);
+    return n > 0 ? n : 20;
+  }
+
+  function loadMode() {
+    try {
+      var m = localStorage.getItem(MODE_KEY);
+      return m === MODE_ANOMALY ? MODE_ANOMALY : MODE_FULL;
+    } catch (e) {
+      return MODE_FULL;
+    }
+  }
+
+  function persistMode(mode) {
+    try { localStorage.setItem(MODE_KEY, mode); } catch (e) { /* 儲存空間不可用時忽略 */ }
   }
 
   function escapeHtml(s) {
@@ -74,9 +107,14 @@
     '.audit-item-qty-row{display:flex;gap:8px;}' +
     '.audit-item-qty-row label{flex:1;font-size:0.85rem;}' +
     '.audit-choice-group{display:flex;gap:8px;margin-top:8px;}' +
-    '.audit-verdict-btn,.audit-vault-btn{flex:1;padding:10px;border-radius:var(--radius);' +
+    '.audit-verdict-btn,.audit-vault-btn,.audit-mode-btn{flex:1;padding:10px;border-radius:var(--radius);' +
     'border:1px solid var(--color-primary);background:var(--color-surface);color:var(--color-primary);font-weight:600;}' +
-    '.audit-verdict-btn.active,.audit-vault-btn.active{background:var(--color-primary);color:#fff;}' +
+    '.audit-verdict-btn.active,.audit-vault-btn.active,.audit-mode-btn.active{background:var(--color-primary);color:#fff;}' +
+    '#audit-mode-hint{margin:8px 0 0;font-size:0.85rem;color:var(--color-text-muted);}' +
+    '#audit-count-warning{border-radius:8px;padding:8px 12px;margin:var(--gap) 0 0;}' +
+    '#audit-count-warning.warn{color:#8a6d00;background:#fff6db;border:1px solid #f0dfa0;}' +
+    '#audit-count-warning.info{color:var(--color-text);background:var(--color-primary-light);border:1px solid transparent;}' +
+    '#audit-count-warning.bad{color:#a3352a;background:#fdecea;border:1px solid #f3bfb8;}' +
     '.audit-anomaly-detail{margin-top:8px;padding:10px;background:var(--color-primary-light);border-radius:var(--radius);}' +
     '.audit-anomaly-detail label{margin-top:6px;}' +
     '.audit-anomaly-detail label:first-child{margin-top:0;}' +
@@ -118,6 +156,8 @@
       : (String(year) === String(realYear) ? realMonthStr : months[0]);
 
     // ---- 畫面狀態（closure，每次 render 重置）----
+    var SAMPLE_SIZE = sampleSize(root);
+    var mode = loadMode();
     var currentStore = defaultStore;
     var currentMonth = defaultMonth;
     var items = []; // [{name, unit, lastDrawn, book_qty, recount_qty, verdict, reason, note}]
@@ -127,11 +167,19 @@
       root.AuditState = {
         store: currentStore,
         month: currentMonth,
+        mode: mode,
+        sampleSize: SAMPLE_SIZE,
         items: items.slice()
       };
     }
 
+    function isAnomalyMode() {
+      return mode === MODE_ANOMALY;
+    }
+
     // ---- 品項填值正規化：確保每項都有 T5 的欄位（預設空）----
+    // 只填異常項模式下，清單裡的每一項本來就是異常項，判定直接固定成「異常」——
+    // 畫面不再顯示正確／異常按鈕，也就沒有「忘了核定」這種狀態。
     function normalizeItem(it) {
       return {
         name: it.name,
@@ -139,15 +187,22 @@
         lastDrawn: it.lastDrawn || null,
         book_qty: it.book_qty !== undefined && it.book_qty !== null ? it.book_qty : '',
         recount_qty: it.recount_qty !== undefined && it.recount_qty !== null ? it.recount_qty : '',
-        verdict: it.verdict || '',
+        verdict: isAnomalyMode() ? '異常' : (it.verdict || ''),
         reason: it.reason || '',
         note: it.note || ''
       };
     }
 
     // ---- 草稿：localStorage key=`draft_{record_key}`（每次變動即存；選同店月自動還原）----
+    // 兩種填寫方式各存各的（只填異常項多後綴 `_anomaly`）：切模式不會蓋掉另一邊已填的內容。
+    // 完整模式沿用原本的 key，舊草稿不會因為這次改版失效。
+    function draftKeyFor(m) {
+      return 'draft_' + Format.recordKey(currentStore, currentMonth) +
+        (m === MODE_ANOMALY ? '_anomaly' : '');
+    }
+
     function draftKey() {
-      return 'draft_' + Format.recordKey(currentStore, currentMonth);
+      return draftKeyFor(mode);
     }
 
     function saveDraft() {
@@ -179,8 +234,13 @@
       }
     }
 
+    // 送出成功時兩種模式的草稿一起清：只清當前模式的話，
+    // 另一把舊 key 會在切模式時被還原成「這個月還沒送出」的樣子。
     function clearDraft() {
-      try { localStorage.removeItem(draftKey()); } catch (e) { /* 忽略 */ }
+      try {
+        localStorage.removeItem(draftKeyFor(MODE_FULL));
+        localStorage.removeItem(draftKeyFor(MODE_ANOMALY));
+      } catch (e) { /* 忽略 */ }
     }
 
     // ---- 模板 ----
@@ -203,14 +263,22 @@
         '</select>' +
       '</div>' +
       '<div class="card">' +
-        '<button type="button" id="audit-draw" class="btn">隨機抽 20 項</button>' +
+        '<label>填寫方式</label>' +
+        '<div class="audit-choice-group" id="audit-mode-group">' +
+          '<button type="button" class="audit-mode-btn" data-mode="' + MODE_FULL + '">完整 ' + SAMPLE_SIZE + ' 項</button>' +
+          '<button type="button" class="audit-mode-btn" data-mode="' + MODE_ANOMALY + '">只填異常項</button>' +
+        '</div>' +
+        '<p id="audit-mode-hint"></p>' +
+      '</div>' +
+      '<div class="card">' +
+        '<button type="button" id="audit-draw" class="btn">隨機抽 ' + SAMPLE_SIZE + ' 項</button>' +
         '<div id="audit-add-row" style="display:flex;gap:8px;margin-top:var(--gap);align-items:flex-start;">' +
           '<input type="text" id="audit-add-input" list="audit-item-datalist" placeholder="輸入品項名稱加入" style="flex:1;">' +
           '<datalist id="audit-item-datalist"></datalist>' +
           '<button type="button" id="audit-add-btn" class="btn btn-secondary" style="width:auto;white-space:nowrap;">加入品項</button>' +
         '</div>' +
-        '<p id="audit-count-warning" hidden ' +
-          'style="color:#8a6d00;background:#fff6db;border:1px solid #f0dfa0;border-radius:8px;padding:8px 12px;margin:var(--gap) 0 0;"></p>' +
+        '<p id="audit-add-error" class="status-danger" hidden style="margin:8px 0 0;"></p>' +
+        '<p id="audit-count-warning" hidden></p>' +
         '<ul id="audit-items" style="list-style:none;padding:0;margin:var(--gap) 0 0;"></ul>' +
       '</div>' +
       '<div class="card" id="audit-vault-card">' +
@@ -232,9 +300,12 @@
 
     var storeSelect = el.querySelector('#audit-store');
     var monthSelect = el.querySelector('#audit-month');
+    var modeGroup = el.querySelector('#audit-mode-group');
+    var modeHint = el.querySelector('#audit-mode-hint');
     var drawBtn = el.querySelector('#audit-draw');
     var addInput = el.querySelector('#audit-add-input');
     var addBtn = el.querySelector('#audit-add-btn');
+    var addErrorEl = el.querySelector('#audit-add-error');
     var datalist = el.querySelector('#audit-item-datalist');
     var itemsEl = el.querySelector('#audit-items');
     var warningEl = el.querySelector('#audit-count-warning');
@@ -272,14 +343,72 @@
       }).join('');
     }
 
+    function setWarning(text, kind) {
+      warningEl.className = kind || '';
+      warningEl.textContent = text || '';
+      warningEl.hidden = !text;
+    }
+
+    // 只填異常項模式：異常數超過標準項數就沒有意義（正確項會變負數），擋下並提示。
+    function tooManyAnomalies() {
+      return isAnomalyMode() && items.length > SAMPLE_SIZE;
+    }
+
     function renderWarning() {
-      if (items.length === 20) {
-        warningEl.hidden = true;
-        warningEl.textContent = '';
-      } else {
-        warningEl.hidden = false;
-        warningEl.textContent = '目前 ' + items.length + ' 項（標準 20 項）';
+      if (isAnomalyMode()) {
+        if (tooManyAnomalies()) {
+          setWarning('異常 ' + items.length + ' 項，已超過標準 ' + SAMPLE_SIZE +
+            ' 項，請刪除多餘項目後再送出', 'bad');
+          return;
+        }
+        var counts = Format.anomalyOnlyCounts(items.length, SAMPLE_SIZE);
+        setWarning('異常 ' + items.length + ' 項，其餘視同正確 → 正確率 ' +
+          counts.correct_rate + '%（' + counts.correct_count + '／' + SAMPLE_SIZE + '，分母固定 ' +
+          SAMPLE_SIZE + ' 項）', 'info');
+        return;
       }
+      if (items.length === SAMPLE_SIZE) {
+        setWarning('', '');
+      } else {
+        setWarning('目前 ' + items.length + ' 項（標準 ' + SAMPLE_SIZE + ' 項）', 'warn');
+      }
+    }
+
+    function hideAddError() {
+      addErrorEl.hidden = true;
+      addErrorEl.textContent = '';
+    }
+
+    function showAddError(msg) {
+      addErrorEl.textContent = msg;
+      addErrorEl.hidden = false;
+    }
+
+    // 依模式切換抽樣區的樣貌：只填異常項時沒有「抽樣」這件事，隱藏抽樣鈕、
+    // 輸入框改成登記異常品項。
+    function renderMode() {
+      var btns = modeGroup.querySelectorAll('.audit-mode-btn');
+      for (var i = 0; i < btns.length; i++) {
+        var m = btns[i].getAttribute('data-mode');
+        if (m === mode) {
+          btns[i].classList.add('active');
+        } else {
+          btns[i].classList.remove('active');
+        }
+      }
+      if (isAnomalyMode()) {
+        modeHint.textContent = '只輸入異常的品項，其餘視同正確；正確率固定以 ' +
+          SAMPLE_SIZE + ' 項為分母計算。';
+        drawBtn.hidden = true;
+        addInput.placeholder = '輸入異常品項名稱加入';
+        addBtn.textContent = '加入異常品項';
+      } else {
+        modeHint.textContent = '抽滿 ' + SAMPLE_SIZE + ' 項逐項核定，正確率以實際清單項數為分母。';
+        drawBtn.hidden = false;
+        addInput.placeholder = '輸入品項名稱加入';
+        addBtn.textContent = '加入品項';
+      }
+      hideAddError();
     }
 
     function reasonOptionsHtml(selectedReason) {
@@ -291,12 +420,13 @@
     }
 
     function renderItems() {
+      var anomalyMode = isAnomalyMode();
       itemsEl.innerHTML = items.map(function (it) {
         var flag = it.lastDrawn
           ? '<span class="audit-item-flag" style="color:#a3352a;margin-left:8px;">⚠ ' +
             escapeHtml(it.lastDrawn) + ' 抽過</span>'
           : '';
-        var isAnomaly = it.verdict === '異常';
+        var isAnomaly = anomalyMode || it.verdict === '異常';
         var notePlaceholder = it.reason === '其他' ? '必填：請說明原因' : '選填';
         return (
           '<li class="audit-item-row" data-item="' + escapeHtml(it.name) + '" data-unit="' + escapeHtml(it.unit) + '" ' +
@@ -308,7 +438,8 @@
                 flag +
               '</span>' +
               '<span style="white-space:nowrap;">' +
-                '<button type="button" class="audit-item-redraw" data-name="' + escapeHtml(it.name) + '">換一項</button>' +
+                (anomalyMode ? '' :
+                  '<button type="button" class="audit-item-redraw" data-name="' + escapeHtml(it.name) + '">換一項</button>') +
                 '<button type="button" class="audit-item-remove" data-name="' + escapeHtml(it.name) + '" style="margin-left:6px;">刪除</button>' +
               '</span>' +
             '</div>' +
@@ -317,10 +448,12 @@
                 '<label>門市盤點數<input type="number" step="any" inputmode="decimal" class="audit-book-qty" value="' + qtyAttr(it.book_qty) + '"></label>' +
                 '<label>會計複盤數<input type="number" step="any" inputmode="decimal" class="audit-recount-qty" value="' + qtyAttr(it.recount_qty) + '"></label>' +
               '</div>' +
-              '<div class="audit-choice-group">' +
-                '<button type="button" class="audit-verdict-btn' + (it.verdict === '正確' ? ' active' : '') + '" data-verdict="正確">正確</button>' +
-                '<button type="button" class="audit-verdict-btn' + (isAnomaly ? ' active' : '') + '" data-verdict="異常">異常</button>' +
-              '</div>' +
+              // 只填異常項模式下每一項都是異常，不需要（也不該）再核定一次
+              (anomalyMode ? '' :
+                '<div class="audit-choice-group">' +
+                  '<button type="button" class="audit-verdict-btn' + (it.verdict === '正確' ? ' active' : '') + '" data-verdict="正確">正確</button>' +
+                  '<button type="button" class="audit-verdict-btn' + (isAnomaly ? ' active' : '') + '" data-verdict="異常">異常</button>' +
+                '</div>') +
               '<div class="audit-anomaly-detail"' + (isAnomaly ? '' : ' hidden') + '>' +
                 '<label>異常原因<select class="audit-reason">' + reasonOptionsHtml(it.reason) + '</select></label>' +
                 '<label>備註<input type="text" class="audit-item-note" value="' + escapeHtml(it.note || '') + '" placeholder="' + notePlaceholder + '"></label>' +
@@ -340,12 +473,21 @@
     }
 
     function addItemByName(name) {
+      hideAddError();
       if (!name) return;
       var storeItems = currentStoreItems();
       var target = storeItems.filter(function (it) { return it.name === name; })[0];
-      if (!target) return; // 不在該店品項庫，忽略
+      // 不在該店品項庫就加不進來。原本是靜靜忽略，但只填異常項模式下打字是主要輸入方式，
+      // 靜靜沒反應會讓人以為加進去了——改成明講，並指出要去品項庫補。
+      if (!target) {
+        showAddError('品項庫沒有「' + name + '」，請確認名稱，或先到試算表「品項庫」分頁補這一項');
+        return;
+      }
       var currentNames = items.map(function (it) { return it.name; });
-      if (currentNames.indexOf(name) !== -1) return; // 已在清單中
+      if (currentNames.indexOf(name) !== -1) {
+        showAddError('「' + name + '」已在清單中');
+        return;
+      }
       // 重用 redrawOne：候選池只放這一個目標品項，即可拿到含 lastDrawn 的結果，不必另開純函式
       var picked = Sampling.redrawOne(currentNames, [target], currentStoreDetails());
       if (picked) {
@@ -394,13 +536,26 @@
 
     function validate() {
       var errors = [];
-      if (items.length === 0) {
+      var anomalyMode = isAnomalyMode();
+      // 只填異常項模式：0 項異常是合法的（＝全部正確，正確率 100%），不能擋。
+      if (!anomalyMode && items.length === 0) {
         errors.push('尚未抽樣，清單是空的');
+      }
+      if (tooManyAnomalies()) {
+        errors.push('異常 ' + items.length + ' 項，已超過標準 ' + SAMPLE_SIZE + ' 項，請刪除多餘項目');
       }
       items.forEach(function (it, idx) {
         var label = (idx + 1) + '.' + it.name;
         if (isBlankNumber(it.book_qty)) errors.push(label + '：門市盤點數未填');
         if (isBlankNumber(it.recount_qty)) errors.push(label + '：會計複盤數未填');
+        if (anomalyMode) {
+          if (!it.reason) {
+            errors.push(label + '：異常需選擇原因');
+          } else if (it.reason === '其他' && !(it.note && it.note.trim())) {
+            errors.push(label + '：原因為「其他」需填寫備註');
+          }
+          return;
+        }
         if (it.verdict !== '正確' && it.verdict !== '異常') {
           errors.push(label + '：尚未核定正確／異常');
         } else if (it.verdict === '異常') {
@@ -444,9 +599,23 @@
     }
 
     function buildRecord() {
-      var total = items.length;
-      var correctCount = items.filter(function (it) { return it.verdict === '正確'; }).length;
-      var anomalyForText = items.filter(function (it) { return it.verdict === '異常'; }).map(function (it) {
+      // 完整模式：分母＝實際清單項數，正確數＝核定為正確的項數。
+      // 只填異常項模式：分母固定 SAMPLE_SIZE，正確數＝SAMPLE_SIZE − 異常項數
+      //                （顯示分頁的 D 欄是公式 =C/B，所以填 19/20 出來就是 95%）。
+      var counts = isAnomalyMode()
+        ? Format.anomalyOnlyCounts(items.length, SAMPLE_SIZE)
+        : (function () {
+            var total = items.length;
+            var correctCount = items.filter(function (it) { return it.verdict === '正確'; }).length;
+            return {
+              sample_count: total,
+              correct_count: correctCount,
+              correct_rate: Format.correctRate(correctCount, total)
+            };
+          })();
+      var anomalyForText = items.filter(function (it) {
+        return isAnomalyMode() || it.verdict === '異常';
+      }).map(function (it) {
         return { item: it.name, unit: it.unit, book_qty: it.book_qty, recount_qty: it.recount_qty, verdict: '異常' };
       });
       return {
@@ -455,9 +624,9 @@
         month: currentMonth,
         status: '已稽核',
         audit_date: todayStr(),
-        sample_count: total,
-        correct_count: correctCount,
-        correct_rate: Format.correctRate(correctCount, total),
+        sample_count: counts.sample_count,
+        correct_count: counts.correct_count,
+        correct_rate: counts.correct_rate,
         change_fund: vaultState.change_fund,
         petty_cash: vaultState.petty_cash,
         tip_amount: Number(vaultState.tip_amount),
@@ -471,7 +640,9 @@
     function buildDetails() {
       var key = Format.recordKey(currentStore, currentMonth);
       return items.map(function (it) {
-        var isAnomaly = it.verdict === '異常';
+        // 只填異常項模式下清單裡就只有異常項；明細只會寫這幾列，
+        // 沒被輸入的品項不進「抽查明細」分頁（它們沒有被逐項記錄，只計入分母）。
+        var isAnomaly = isAnomalyMode() || it.verdict === '異常';
         return {
           record_key: key,
           store: currentStore,
@@ -480,7 +651,7 @@
           unit: it.unit,
           book_qty: Number(it.book_qty),
           recount_qty: Number(it.recount_qty),
-          verdict: it.verdict,
+          verdict: isAnomaly ? '異常' : it.verdict,
           reason: isAnomaly ? (it.reason || '') : '',
           note: isAnomaly ? (it.note || '') : ''
         };
@@ -575,12 +746,26 @@
       } else {
         resetState();
       }
+      renderMode();
       renderItems();
       renderVault();
       hideSubmitError();
       hideOverwriteDialog();
       retryBtn.hidden = true;
     }
+
+    // ---- 事件：切換填寫方式 ----
+    // 切模式＝換一份草稿（兩邊各存各的），不會動到另一邊已填的內容。
+    modeGroup.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('.audit-mode-btn') : null;
+      if (!btn) return;
+      var next = btn.getAttribute('data-mode');
+      if (next === mode) return;
+      saveDraft();          // 先把目前模式的內容存起來，再換過去
+      mode = next;
+      persistMode(mode);
+      tryRestoreOrReset();
+    });
 
     // ---- 事件：選店／選月 ----
     storeSelect.addEventListener('change', function () {
@@ -598,7 +783,7 @@
     drawBtn.addEventListener('click', function () {
       var storeItems = currentStoreItems();
       var storeDetails = currentStoreDetails();
-      setItems(Sampling.drawSample(storeItems, storeDetails, 20).map(normalizeItem));
+      setItems(Sampling.drawSample(storeItems, storeDetails, SAMPLE_SIZE).map(normalizeItem));
     });
 
     addBtn.addEventListener('click', function () {

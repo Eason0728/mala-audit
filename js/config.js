@@ -9,6 +9,9 @@
 
   var config = {
     MODE: 'cloud', // 'local' | 'cloud'
+    // 每月每店的標準抽查項數。抽樣鈕、數量提醒、以及「只填異常項」模式的
+    // 正確率分母都讀這一個值——要改成別的數字只改這裡。
+    SAMPLE_SIZE: 20,
     GAS_URL: 'https://script.google.com/macros/s/AKfycbz5l_aH_qypN6HK6UDT__5NLZDk4A2clyqeqvJzx5JrL9SBVeH5GyDYBCW3gv-CDy7fFQ/exec',
     // 2026-08-01 Eason 指示上鎖：需通行碼才能使用。
     // 通行碼本身只存在試算表「設定」分頁，**不寫進程式碼、不進 GitHub**。

@@ -33,6 +33,19 @@ assertEqual(Format.correctRate(19, 20), 95, 'correctRate(19,20)');
 assertEqual(Format.correctRate(0, 20), 0, 'correctRate(0,20)');
 assertEqual(Format.correctRate(20, 20), 100, 'correctRate(20,20)');
 
+// --- anomalyOnlyCounts：只填異常項模式，分母固定 ---
+var one = Format.anomalyOnlyCounts(1, 20);
+assertEqual(one.sample_count, 20, 'anomalyOnlyCounts(1,20).sample_count');
+assertEqual(one.correct_count, 19, 'anomalyOnlyCounts(1,20).correct_count');
+assertEqual(one.correct_rate, 95, 'anomalyOnlyCounts(1,20).correct_rate＝95（Eason 指定的例子）');
+assertEqual(Format.anomalyOnlyCounts(0, 20).correct_rate, 100, 'anomalyOnlyCounts(0,20)＝100%');
+assertEqual(Format.anomalyOnlyCounts(3, 20).correct_rate, 85, 'anomalyOnlyCounts(3,20)＝85%');
+assertEqual(Format.anomalyOnlyCounts(20, 20).correct_rate, 0, 'anomalyOnlyCounts(20,20)＝0%');
+// 超過標準項數：correct_count 夾在 0，不產生負數（送出由前端另外擋）
+assertEqual(Format.anomalyOnlyCounts(25, 20).correct_count, 0, 'anomalyOnlyCounts(25,20) 不出現負數');
+// 沒給 sampleSize 時回退 20
+assertEqual(Format.anomalyOnlyCounts(1).correct_rate, 95, 'anomalyOnlyCounts(1) 預設分母 20');
+
 // --- buildAnomalyText：spec §5 範例逐字元比對 ---
 var details = [
   { item: '鴨血', unit: '盒', book_qty: 27, recount_qty: 32, verdict: '異常' },

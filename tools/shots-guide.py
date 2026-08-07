@@ -100,6 +100,21 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     shot(page, '03-pick-store')
 
+    # ── 03b 只填異常項模式（切過去填一項，拍完切回完整模式；兩模式草稿分開存，不互相汙染）──
+    page.click('.audit-mode-btn[data-mode="anomaly"]')
+    page.wait_for_timeout(200)
+    page.fill('#audit-add-input', '牛肉片')
+    page.click('#audit-add-btn')
+    page.wait_for_timeout(200)
+    row1 = '#audit-items li.audit-item-row:nth-of-type(1) '
+    page.fill(row1 + '.audit-book-qty', '26.5')
+    page.fill(row1 + '.audit-recount-qty', '29.4')
+    page.select_option(row1 + '.audit-reason', '損耗未記')
+    page.wait_for_timeout(300)
+    shot(page, '03b-anomaly-mode', full=True)
+    page.click('.audit-mode-btn[data-mode="full"]')
+    page.wait_for_timeout(250)
+
     # ── 04 抽出 20 項 ──
     page.click('#audit-draw')
     page.wait_for_selector('#audit-items li.audit-item-row', timeout=15000)

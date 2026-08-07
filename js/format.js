@@ -27,6 +27,21 @@
     return Math.round((correct / total) * 100);
   }
 
+  // anomalyOnlyCounts(異常項數, 標準項數) → {sample_count, correct_count, correct_rate}
+  // 「只填異常項」模式用：會計只輸入異常的品項，其餘視同正確，
+  // 分母固定＝標準項數（預設 20），所以 1 項異常 → 19/20 → 95。
+  // 異常項數超過標準項數時 correct_count 夾在 0（不產生負數），由前端另外擋下送出。
+  function anomalyOnlyCounts(anomalyCount, sampleSize) {
+    var total = Number(sampleSize) > 0 ? Number(sampleSize) : 20;
+    var anomalies = Math.max(0, Number(anomalyCount) || 0);
+    var correct = Math.max(0, total - anomalies);
+    return {
+      sample_count: total,
+      correct_count: correct,
+      correct_rate: correctRate(correct, total)
+    };
+  }
+
   // buildAnomalyText(details) → 只取 verdict==='異常' 的項，依傳入順序編號
   // 格式：{序號}.{品項}:盤點{盤點數}{單位}，覆盤{複盤數}{單位}，多筆以 '\n' 連接
   function buildAnomalyText(details) {
@@ -44,6 +59,7 @@
     recordKey: recordKey,
     monthLabel: monthLabel,
     correctRate: correctRate,
+    anomalyOnlyCounts: anomalyOnlyCounts,
     buildAnomalyText: buildAnomalyText
   };
 
