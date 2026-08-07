@@ -60,6 +60,32 @@
     try { localStorage.setItem(MODE_KEY, mode); } catch (e) { /* 儲存空間不可用時忽略 */ }
   }
 
+  // 找某家店最近一份「有內容的未送出草稿」→ {month, mode}；沒有回 null。
+  // 用途：重開稽核填寫時，除了回到上次那家店，還要**落在那份草稿的月份**上，
+  // 否則只回到店、月份卻是當月，畫面照樣空的，看起來還是像內容不見了
+  // （2026-08-07 線上冒煙測到：回到墨竹亭光復但停在八月，草稿其實在十月）。
+  function latestDraftForStore(store) {
+    var best = null;
+    if (!store) return null;
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (!k || k.indexOf('draft_') !== 0) continue;
+        var payload = null;
+        try { payload = JSON.parse(localStorage.getItem(k)); } catch (e) { continue; }
+        if (!payload || payload.store !== store || !payload.month) continue;
+        var hasItems = (payload.items || []).length > 0;
+        var v = payload.vault || {};
+        var hasVault = !!(v.change_fund || v.petty_cash || v.tip_amount || v.tip_match || v.note);
+        if (!hasItems && !hasVault) continue;
+        if (!best || payload.month > best.month) {
+          best = { month: payload.month, mode: /_anomaly$/.test(k) ? MODE_ANOMALY : MODE_FULL };
+        }
+      }
+    } catch (e) { /* 儲存空間不可用時當作沒草稿 */ }
+    return best;
+  }
+
   function escapeHtml(s) {
     return String(s === null || s === undefined ? '' : s)
       .replace(/&/g, '&amp;')
@@ -150,14 +176,6 @@
     var realYear = now.getFullYear();
     var realMonthStr = realYear + '-' + pad2(now.getMonth() + 1);
 
-    var year = (app.state && app.state.year) || realYear;
-    if (params.month) {
-      var parsedYear = Number(String(params.month).split('-')[0]);
-      if (parsedYear) year = parsedYear;
-    }
-
-    var months = buildMonthList(year);
-
     // 預設店：從總覽點格子進來 → 那一格的店；否則沿用上次填的那家（草稿才回得去，
     // 2026-08-07 Eason 回報「填一半跳出去就被重置」的真正原因是這裡固定跳回第一家）。
     function pickDefaultStore() {
@@ -171,13 +189,27 @@
     }
     var defaultStore = pickDefaultStore();
 
+    // 不是從總覽點格子進來時，若這家店有未送出的草稿，就直接落在那份草稿的月份與模式上。
+    var resumeDraftTarget = params.month ? null : latestDraftForStore(defaultStore);
+
+    var year = (app.state && app.state.year) || realYear;
+    var yearSource = params.month || (resumeDraftTarget && resumeDraftTarget.month);
+    if (yearSource) {
+      var parsedYear = Number(String(yearSource).split('-')[0]);
+      if (parsedYear) year = parsedYear;
+    }
+
+    var months = buildMonthList(year);
+
     var defaultMonth = params.month
       ? params.month
-      : (String(year) === String(realYear) ? realMonthStr : months[0]);
+      : (resumeDraftTarget
+          ? resumeDraftTarget.month
+          : (String(year) === String(realYear) ? realMonthStr : months[0]));
 
     // ---- 畫面狀態（closure，每次 render 重置）----
     var SAMPLE_SIZE = sampleSize(root);
-    var mode = loadMode();
+    var mode = resumeDraftTarget ? resumeDraftTarget.mode : loadMode();
     var currentStore = defaultStore;
     var currentMonth = defaultMonth;
     var items = []; // [{name, unit, lastDrawn, book_qty, recount_qty, verdict, reason, note}]

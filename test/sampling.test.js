@@ -57,7 +57,10 @@ assertEqual(sample20.length, 20, 'drawSample n=20 回傳 20 項');
 assertTrue(uniqueNames(sample20), 'drawSample n=20 品項不重複');
 sample20.forEach(function (it) {
   assertTrue(typeof it.name === 'string' && !!it.name, 'drawSample 每項有 name');
-  assertTrue(typeof it.unit === 'string' && !!it.unit, 'drawSample 每項有 unit');
+  // unit 允許是空字串：品項庫本來就有單位留空的項目（真實庫裡 58 項）。
+  // 抽樣要原樣帶出來，畫面才標得出「(缺單位)」讓會計當場補；
+  // 這裡若要求非空，抽到那種品項就會偶發失敗（2026-08-07 踩到）。
+  assertTrue(typeof it.unit === 'string', 'drawSample 每項有 unit 欄位（可為空字串）');
 });
 
 // --- drawSample：n 不足時（大於品項庫全部）→ 全給、不重複 ---

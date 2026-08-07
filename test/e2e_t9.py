@@ -105,6 +105,16 @@ def main():
         cur_store = page.eval_on_selector('#audit-store', 'e => e.value')
         check(cur_store == 'mzt-gf',
               '(1) 重開稽核填寫回到上次那家店 mzt-gf（實際 %s）' % cur_store)
+        # 只回到店還不夠：月份若停在當月，畫面照樣空的，看起來還是像內容不見了。
+        # 有未送出草稿時要連月份與填寫方式一起落回去（2026-08-07 線上冒煙測到的缺口）。
+        landed = page.evaluate("""() => ({
+            month: window.AuditState.month, mode: window.AuditState.mode,
+            first: (window.AuditState.items[0] || {}).name,
+            qty: (window.AuditState.items[0] || {}).book_qty })""")
+        check(landed == {'month': '2026-10', 'mode': 'anomaly', 'first': '柚子醬', 'qty': '5'},
+              '(1) 且直接落在那份草稿的月份／模式上，內容整份還原（%s）' % landed)
+        check(page.eval_on_selector('#audit-month', 'e => e.value') == '2026-10',
+              '(1) 月份下拉也跟著指到 2026-10')
 
         # ================= (2) 草稿一覽：切到別的店月後，前面那份要被列出來 =================
         page.select_option('#audit-store', 'sxl-gf')
