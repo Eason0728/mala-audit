@@ -33,7 +33,7 @@ def login(page):
     page.wait_for_selector('#login-code', timeout=10000)
     page.fill('#login-code', '1234')
     page.click('#login-submit')
-    page.wait_for_selector('#main-nav:not([hidden])', timeout=10000)
+    page.wait_for_selector('#view-home:not([hidden])', timeout=10000)
 
 
 def open_audit(page):

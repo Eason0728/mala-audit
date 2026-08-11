@@ -55,12 +55,54 @@
     return lines.join('\n');
   }
 
+  // ── 營運稽核表（2026-08-11 新增；與上面的月初盤點抽查是兩套獨立統計）──────────
+
+  // opsCounts(details, total) → {total, pass, fail, pending, track, pass_rate}
+  // details: [{verdict:'合格'|'未完成'|'未檢查', track:bool}]，total＝檢查表細項總數。
+  // 合格率分母固定＝total（細項總數），**未檢查的項目算在分母裡**——
+  // 沒檢查完的稽核不該顯示 100%，這是刻意的（跟盤點那套「只填異常項」的固定分母同精神）。
+  function opsCounts(details, total) {
+    var list = details || [];
+    var denom = Number(total) > 0 ? Number(total) : list.length;
+    var pass = 0, fail = 0, track = 0;
+    list.forEach(function (d) {
+      if (d.verdict === '合格') pass++;
+      else if (d.verdict === '未完成') fail++;
+      if (d.track) track++;
+    });
+    return {
+      total: denom,
+      pass: pass,
+      fail: fail,
+      pending: Math.max(0, denom - pass - fail),
+      track: track,
+      pass_rate: correctRate(pass, denom)
+    };
+  }
+
+  // buildOpsSummary(details) → 只取 verdict==='未完成' 的項，依傳入順序編號
+  // 格式：{序號}.{群組}－{檢查項目}:{說明}，多筆以 '\n' 連接（冒號半形，同 buildAnomalyText）
+  // 沒填說明就只到項目名為止，不留一個孤零零的冒號。
+  function buildOpsSummary(details) {
+    var list = (details || []).filter(function (d) {
+      return d.verdict === '未完成';
+    });
+    var lines = list.map(function (d, i) {
+      var head = (i + 1) + '.' + (d.group || '') + '－' + (d.text || '');
+      var note = (d.note || '').trim();
+      return note ? head + ':' + note : head;
+    });
+    return lines.join('\n');
+  }
+
   var Format = {
     recordKey: recordKey,
     monthLabel: monthLabel,
     correctRate: correctRate,
     anomalyOnlyCounts: anomalyOnlyCounts,
-    buildAnomalyText: buildAnomalyText
+    buildAnomalyText: buildAnomalyText,
+    opsCounts: opsCounts,
+    buildOpsSummary: buildOpsSummary
   };
 
   if (typeof module !== 'undefined' && module.exports) {

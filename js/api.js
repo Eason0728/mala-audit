@@ -33,15 +33,17 @@
 
   function loadOverlay() {
     var raw = storage.getItem(DB_KEY);
-    if (!raw) return { records: {}, details: {} };
+    if (!raw) return { records: {}, details: {}, ops_records: {}, ops_details: {} };
     try {
       var parsed = JSON.parse(raw);
       return {
         records: parsed.records || {},
-        details: parsed.details || {}
+        details: parsed.details || {},
+        ops_records: parsed.ops_records || {},
+        ops_details: parsed.ops_details || {}
       };
     } catch (e) {
-      return { records: {}, details: {} };
+      return { records: {}, details: {}, ops_records: {}, ops_details: {} };
     }
   }
 
@@ -108,14 +110,40 @@
     });
     var details = seedDetails.concat(overlayDetails);
 
+    // 營運稽核：mock 沒有種子歷史，全部來自 overlay（測試自己送出、自己讀回）
+    var opsRecords = Object.keys(overlay.ops_records).map(function (k) {
+      return overlay.ops_records[k];
+    });
+    var opsDetails = [];
+    Object.keys(overlay.ops_details).forEach(function (k) {
+      opsDetails = opsDetails.concat(overlay.ops_details[k]);
+    });
+
     return {
       ok: true,
       config: MockData.config,
       items: MockData.items,
       records: records,
-      details: details
+      details: details,
+      ops_records: opsRecords,
+      ops_details: opsDetails
     };
   }
+
+  function mockSubmitOpsAudit(code, record, details) {
+    if (!canWrite(code)) return { ok: false, error: '無權限（僅會計可送出稽核）' };
+    var overlay = loadOverlay();
+    var key = (record && record.record_key) || Format.recordKey(record.store, record.month);
+    record.record_key = key;
+    overlay.ops_records[key] = record;
+    overlay.ops_details[key] = (details || []).map(function (d) {
+      d.record_key = key;
+      return d;
+    });
+    saveOverlay(overlay);
+    return { ok: true, record_key: key };
+  }
+
 
   function mockSubmitAudit(code, record, details) {
     if (!canWrite(code)) return { ok: false };
@@ -208,6 +236,16 @@
           resolve(cloudCall('markRest', { code: code, store: store, month: month }));
         } else {
           resolve(mockMarkRest(code, store, month));
+        }
+      });
+    },
+    // ---- 營運稽核表（2026-08-11）----
+    submitOpsAudit: function (code, record, details) {
+      return new Promise(function (resolve) {
+        if (getMode() === 'cloud') {
+          resolve(cloudCall('submitOpsAudit', { code: code, record: record, details: details }));
+        } else {
+          resolve(mockSubmitOpsAudit(code, record, details));
         }
       });
     }

@@ -257,32 +257,10 @@
       table + '</div>';
   }
 
-  // ---- 畫面內嵌樣式（僅套用螢幕顯示；列印樣式一律在 css/print.css）----
-  var SCREEN_STYLE =
-    '<style>' +
-    '.report-controls{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:var(--gap);}' +
-    '.report-controls label{flex:1;min-width:140px;}' +
-    '.mode-toggle{display:flex;gap:8px;margin-bottom:var(--gap);}' +
-    '.mode-toggle .mode-btn{flex:1;padding:10px;border-radius:var(--radius);border:1px solid var(--color-primary);' +
-    'background:var(--color-surface);color:var(--color-primary);font-weight:600;}' +
-    '.mode-toggle .mode-btn.active{background:var(--color-primary);color:#fff;}' +
-    '.report-print-area{background:var(--color-surface);border:1px solid var(--color-border);' +
-    'border-radius:var(--radius);padding:var(--gap);margin-bottom:var(--gap);}' +
-    '.report-header h3{margin:0 0 8px;}' +
-    '.report-meta{color:var(--color-text-muted);margin:0 0 8px;}' +
-    '.report-rate{font-size:2rem;font-weight:700;color:var(--color-primary);margin:4px 0 8px;}' +
-    '.report-rest{font-size:1.3rem;font-weight:700;color:var(--color-danger);}' +
-    '.report-empty{color:var(--color-text-muted);}' +
-    '.report-table{width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:0.9rem;}' +
-    '.report-table th,.report-table td{border:1px solid var(--color-border);padding:6px 8px;text-align:center;}' +
-    '.report-table thead th{background:var(--color-primary-light);}' +
-    '.report-vault-table th{background:var(--color-primary-light);width:22%;}' +
-    '.report-annual-table td.report-anomaly-cell{text-align:left;white-space:normal;}' +
-    '.anomaly-lines{text-align:left;}' +
-    '.anomaly-line{padding:2px 0;}' +
-    '.report-empty-note{color:var(--color-text-muted);margin:0;}' +
-    '.report-note h4,.report-anomaly h4,.report-vault h4{margin:0 0 4px;font-size:1rem;}' +
-    '</style>';
+  // ---- 畫面樣式已移到 css/base.css（2026-08-11）----
+  // 原本整包 <style> 塞在每次 render 的 innerHTML 裡；營運稽核報告要用同一套，
+  // 抄第二份遲早失步，所以搬進 base.css 統一維護。這裡留空字串讓下面的組字不用改。
+  var SCREEN_STYLE = '';
 
   function render(el, app) {
     if (!app.state || !app.state.data) {

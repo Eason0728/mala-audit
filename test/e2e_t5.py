@@ -30,7 +30,7 @@ def login_and_open_audit(page, store='sxl-gf', month='2026-08'):
     page.wait_for_selector('#login-code', timeout=8000)
     page.fill('#login-code', '1234')
     page.click('#login-submit')
-    page.wait_for_selector('#main-nav:not([hidden])', timeout=8000)
+    page.wait_for_selector('#view-home:not([hidden])', timeout=8000)
     page.evaluate("window.App.navigate('audit')")
     page.wait_for_selector('#audit-draw', timeout=5000)
     page.select_option('#audit-store', store)

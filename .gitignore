@@ -11,3 +11,5 @@ docs/guide-shots/
 # PDF 與預覽圖不上傳（PDF 用傳檔的就好，省 repo 體積）
 guides/*.pdf
 guides/preview-*.png
+# build-guide.js 的通行碼比對值（若改用檔案帶入）——絕不可進公開 repo
+.guard-pin

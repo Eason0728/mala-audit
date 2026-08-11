@@ -82,6 +82,11 @@ function ensureDataTabs_(db) {
     db.setColumnsText(TAB_RECORDS, ['A', 'C', 'E', 'O']); // record_key／年月／稽核日期／提交時間
     db.setColumnsText(TAB_DETAILS, ['A', 'C']);           // record_key／年月
   }
+
+  // 營運稽核兩個分頁（2026-08-11 新增）：建法與表頭常數都在 Code.gs，這裡只呼叫，
+  // 不再抄一份表頭——同專案全域共用，抄第二份就會兩邊悄悄失步。
+  ensureOpsTabs_(db);
+  ensureOpsTextColumns_(db);
 }
 
 // migrateDisplayTab_(db, tabName) → bool（是否實際執行了遷移；已遷移過回 false）

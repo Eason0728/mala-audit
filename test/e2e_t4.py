@@ -62,8 +62,8 @@ def main():
         page.wait_for_selector('#login-code', timeout=8000)
         page.fill('#login-code', '1234')
         page.click('#login-submit')
-        page.wait_for_selector('#main-nav:not([hidden])', timeout=8000)
-        check(True, '登入成功，nav 顯示')
+        page.wait_for_selector('#view-home:not([hidden])', timeout=8000)
+        check(True, '登入成功，停在選單頁')
 
         # ---- navigate('audit')（app.js 已由 T3 完成，非 harness；window.App 是 app 實例）----
         page.evaluate("window.App.navigate('audit')")

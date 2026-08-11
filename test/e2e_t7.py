@@ -31,7 +31,10 @@ def open_app(page):
     page.wait_for_selector('#login-code', timeout=8000)
     page.fill('#login-code', '1234')
     page.click('#login-submit')
-    page.wait_for_selector('#main-nav:not([hidden])', timeout=8000)
+    # 2026-08-11 起登入後停在選單頁；本檔測的是月初盤點那一套，登入後直接進該區塊
+    page.wait_for_selector('#view-home:not([hidden])', timeout=8000)
+    page.click('.module-card[data-module="stock"]')
+    page.wait_for_selector('#view-overview:not([hidden])', timeout=8000)
 
 
 def table_rows(page, container_sel):

@@ -45,6 +45,10 @@ def shot(page, name, selector=None, full=False):
     if selector:
         page.locator(selector).screenshot(path=path)
     else:
+        # 先捲回最上面：頁面若停在捲動位置，sticky 的導覽列會壓在裁切區中間
+        # （2026-08-11 拍營運稽核報告時實際踩到，圖從表格中段開始）
+        page.evaluate('window.scrollTo(0, 0)')
+        page.wait_for_timeout(150)
         h = page.evaluate(CONTENT_H) + 16
         vw = page.viewport_size['width']
         page.screenshot(path=path, clip={'x': 0, 'y': 0, 'width': vw, 'height': h})
@@ -52,12 +56,20 @@ def shot(page, name, selector=None, full=False):
     print('  ✓', name)
 
 
-def login(page):
+def login(page, module='stock'):
+    """登入到選單頁，再進指定區塊。
+
+    2026-08-11 起登入後停在「選單」（營運稽核表／月初盤點抽查兩張卡片），
+    導覽列要進了區塊才出現——所以不能再直接等 #main-nav。
+    """
     page.goto(URL)
     page.wait_for_selector('#login-code', timeout=15000)
     page.fill('#login-code', MOCK_CODE)
     page.click('#login-submit')
-    page.wait_for_selector('#main-nav:not([hidden])', timeout=15000)
+    page.wait_for_selector('#view-home:not([hidden])', timeout=15000)
+    if module:
+        page.click('.module-card[data-module="%s"]' % module)
+        page.wait_for_selector('#main-nav:not([hidden])', timeout=15000)
 
 
 def fill_rows(page, count, anomaly_idx=(0,)):
@@ -91,7 +103,14 @@ with sync_playwright() as p:
     page.wait_for_timeout(400)
     shot(page, '01-login')
 
-    # ── 02 總覽 ──
+    # ── 01b 選單：登入後的兩個區塊 ──
+    page.fill('#login-code', MOCK_CODE)
+    page.click('#login-submit')
+    page.wait_for_selector('#view-home:not([hidden])', timeout=15000)
+    page.wait_for_timeout(400)
+    shot(page, '01b-home')
+
+    # ── 02 總覽（月初盤點抽查）──
     login(page)
     page.wait_for_timeout(500)
     shot(page, '02-overview', full=True)
@@ -191,11 +210,7 @@ with sync_playwright() as p:
     page.evaluate("() => { window.Api.submitAudit = window.__real; }")
 
     # ── 12 標記輪休 ──
-    page.goto(URL)
-    page.wait_for_selector('#login-code', timeout=15000)
-    page.fill('#login-code', MOCK_CODE)
-    page.click('#login-submit')
-    page.wait_for_selector('#main-nav:not([hidden])', timeout=15000)
+    login(page)
     page.click('#btn-mark-rest')
     page.wait_for_timeout(400)
     shot(page, '12-mark-rest', selector='#rest-dialog')
@@ -203,11 +218,7 @@ with sync_playwright() as p:
 
     # ── 13 年度總表（桌面寬度比較好讀）──
     wide = b.new_page(viewport={'width': 1100, 'height': 900}, device_scale_factor=2)
-    wide.goto(URL)
-    wide.wait_for_selector('#login-code', timeout=15000)
-    wide.fill('#login-code', MOCK_CODE)
-    wide.click('#login-submit')
-    wide.wait_for_selector('#main-nav:not([hidden])', timeout=15000)
+    login(wide)
     wide.evaluate("window.App.navigate('report', {store:'sxl-gf', month:'2026-01'})")
     wide.wait_for_timeout(800)
     shot(wide, '13-report-wide', full=True)
@@ -226,6 +237,51 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     shot(page, '15-analysis', full=True)
     shot(page, '16-analysis-repeat', selector='#an-repeat')
+
+    # ── 17–20 營運稽核表（2026-08-11）──
+    # 換一頁乾淨的 context 拍：上面那頁的 localStorage 已經被盤點的草稿塞滿，
+    # 直接沿用會讓營運稽核填寫頁一開就跳出一堆不相干的東西。
+    ops = b.new_page(viewport={'width': 390, 'height': 780}, device_scale_factor=2)
+    login(ops, module='ops')
+    ops.wait_for_timeout(500)
+    shot(ops, '17-ops-overview', full=True)
+
+    ops.click('#btn-start-ops')
+    ops.wait_for_selector('#ops-submit', timeout=15000)
+    ops.select_option('#ops-store', 'mzt-gf')
+    ops.wait_for_timeout(300)
+    ops.fill('#ops-auditor', '王會計')
+    # 前兩項示範：一項合格、一項未完成＋說明＋追蹤
+    rows = ops.query_selector_all('.ops-item')
+    id0 = rows[0].get_attribute('data-item')
+    id4 = rows[4].get_attribute('data-item')
+    ops.click('.ops-vbtn[data-verdict="合格"][data-item="%s"]' % id0)
+    ops.wait_for_timeout(150)
+    ops.click('.ops-vbtn[data-verdict="未完成"][data-item="%s"]' % id4)
+    ops.wait_for_timeout(150)
+    ops.click('.ops-tbtn[data-item="%s"]' % id4)
+    ops.wait_for_timeout(150)
+    ops.fill('.ops-note[data-item="%s"]' % id4, '後門那桶沒鏈條固定')
+    ops.wait_for_timeout(400)
+    shot(ops, '18-ops-fill', full=True)
+    ops.locator('.ops-item[data-item="%s"]' % id4).screenshot(
+        path=os.path.join(SHOTS, '19-ops-item.png'))
+    saved.append('19-ops-item')
+    print('  ✓', '19-ops-item')
+
+    # 其餘全部點合格後送出，拍報告
+    ops.evaluate("""() => {
+      document.querySelectorAll('.ops-item').forEach(it => {
+        if (it.querySelector('.ops-vbtn.sel-fail') || it.querySelector('.ops-vbtn.sel-pass')) return;
+        const b = it.querySelector('.ops-vbtn[data-verdict="合格"]');
+        if (b) b.click();
+      });
+    }""")
+    ops.wait_for_timeout(500)
+    ops.click('#ops-submit')
+    ops.wait_for_selector('#view-opsreport:not([hidden])', timeout=15000)
+    ops.wait_for_timeout(600)
+    shot(ops, '20-ops-report', full=True)
 
     b.close()
 

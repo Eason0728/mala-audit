@@ -16,19 +16,21 @@
 
 <header id="app-header">
   <h1>稽核系統｜鼎兆元</h1>
+  <p id="app-subtitle" hidden></p>
 </header>
 
-<nav id="main-nav" hidden>
-  <button type="button" class="nav-btn" data-view="overview">總覽</button>
-  <button type="button" class="nav-btn" data-view="audit">稽核填寫</button>
-  <button type="button" class="nav-btn" data-view="report">報告</button>
-  <button type="button" class="nav-btn" data-view="analysis">異常分析</button>
-</nav>
+<!-- 導覽列的按鈕由 js/app.js 的 renderNav() 依「目前在哪個區塊」動態產生，
+     這裡刻意留空：兩個區塊（營運稽核表／月初盤點抽查）的分頁不一樣。 -->
+<nav id="main-nav" hidden></nav>
 
 <main id="app-main">
 
   <section id="view-login" class="view">
     <!-- 登入畫面：通行碼輸入，js/views/login.js 填內容 -->
+  </section>
+
+  <section id="view-home" class="view" hidden>
+    <!-- 選單：營運稽核表／月初盤點抽查兩區塊，js/views/home.js 填內容 -->
   </section>
 
   <section id="view-overview" class="view" hidden>
@@ -47,19 +49,38 @@
     <!-- 異常分析，js/views/analysis.js 填內容 -->
   </section>
 
+  <!-- ── 營運稽核表（2026-08-11）────────────────────────────── -->
+
+  <section id="view-opsoverview" class="view" hidden>
+    <!-- 營運稽核總覽：5 店 × 12 月合格率格，js/views/opsoverview.js 填內容 -->
+  </section>
+
+  <section id="view-ops" class="view" hidden>
+    <!-- 營運稽核填寫（會計限定），js/views/ops.js 填內容 -->
+  </section>
+
+  <section id="view-opsreport" class="view" hidden>
+    <!-- 營運稽核報告（可列印），js/views/opsreport.js 填內容 -->
+  </section>
+
 </main>
 
-<!-- 全域物件，順序：config → format → sampling → mock-data → api → views/* → app -->
+<!-- 全域物件，順序：config → format → sampling → ops-checklist → mock-data → api → views/* → app -->
 <script src="js/config.js"></script>
 <script src="js/format.js"></script>
 <script src="js/sampling.js"></script>
+<script src="js/ops-checklist.js"></script>
 <script src="js/mock-data.js"></script>
 <script src="js/api.js"></script>
 <script src="js/views/login.js"></script>
+<script src="js/views/home.js"></script>
 <script src="js/views/overview.js"></script>
 <script src="js/views/audit.js"></script>
 <script src="js/views/report.js"></script>
 <script src="js/views/analysis.js"></script>
+<script src="js/views/opsoverview.js"></script>
+<script src="js/views/ops.js"></script>
+<script src="js/views/opsreport.js"></script>
 <script src="js/app.js"></script>
 
 </body>
