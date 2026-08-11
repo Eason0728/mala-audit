@@ -338,6 +338,58 @@ function baseRecord(overrides) {
   assertTrue(unknownRes.ok === false, 'doPost 未知 action 仍拒收（白名單擴充未破壞既有行為）');
 })();
 
+// ============================================================
+// appendRow 會把年月字串解析成 Date（2026-08-07 mzt-gf 實測）——
+// upsertRecord_ 的 append 路徑要在 append 後用 setCell 覆寫年月/日期欄，
+// 就算 appendRow 亂存，最後存進去的仍是字串。
+// 這裡用「會搞破壞的 appendRow」模擬真試算表的行為來驗證補救有效。
+// ============================================================
+(function () {
+  var gas = runner.loadGas();
+  var db = freshDb();
+  // 包一層：appendRow 時把「像年月／日期的字串」偷換成 Date（模擬 Sheets 的自動解析）
+  var realAppend = db.appendRow;
+  db.appendRow = function (tabName, row) {
+    var sabotaged = row.map(function (v) {
+      if (typeof v === 'string' && /^\d{4}-\d{2}$/.test(v)) {
+        return new Date(Number(v.slice(0, 4)), Number(v.slice(5, 7)) - 1, 1);
+      }
+      if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        return new Date(Number(v.slice(0, 4)), Number(v.slice(5, 7)) - 1, Number(v.slice(8, 10)));
+      }
+      return v;
+    });
+    realAppend.call(db, tabName, sabotaged);
+  };
+
+  var record = baseRecord({ record_key: 'mzt-gf_2026-09', store: 'mzt-gf', month: '2026-09', audit_date: '2026-09-05' });
+  var details = buildDetails20('mzt-gf_2026-09', 'mzt-gf', '2026-09');
+  var res = gas.handleSubmitAudit({ code: '1234', record: record, details: details }, db);
+  assertEqual(res.ok, true, 'appendRow 亂存情境：送出仍成功');
+
+  // 直接看底層原始資料：年月/稽核日期欄最後必須是字串（被 setCell 覆寫回來）
+  var raw = db._raw['稽核紀錄'];
+  var rawRow = raw.filter(function (r) { return r[0] === 'mzt-gf_2026-09'; })[0];
+  assertTrue(!!rawRow, 'appendRow 亂存情境：底層有該列');
+  assertEqual(typeof rawRow[2], 'string', '年月欄（C）最後存的是字串不是 Date');
+  assertEqual(rawRow[2], '2026-09', '年月欄值＝2026-09');
+  assertEqual(typeof rawRow[4], 'string', '稽核日期欄（E）最後存的是字串');
+  assertEqual(rawRow[4], '2026-09-05', '稽核日期欄值＝2026-09-05');
+  assertEqual(typeof rawRow[14], 'string', '提交時間欄（O）最後存的是字串');
+
+  // 讀回來也要乾淨（雙保險：就算覆寫沒生效，讀取端正規化也要救回）
+  var rec = gas.readRecords_(db).filter(function (r) { return r.record_key === 'mzt-gf_2026-09'; })[0];
+  assertEqual(rec.month, '2026-09', '讀回 month=2026-09（報告比對得上）');
+
+  // 覆蓋路徑（setRows）不經 appendRow，原本就乾淨——確認沒被這次改動弄壞
+  var record2 = baseRecord({ record_key: 'mzt-gf_2026-09', store: 'mzt-gf', month: '2026-09', audit_date: '2026-09-06', tip_amount: 999 });
+  var res2 = gas.handleSubmitAudit({ code: '1234', record: record2, details: details }, db);
+  assertEqual(res2.ok, true, '覆蓋送出仍成功');
+  var rawRow2 = db._raw['稽核紀錄'].filter(function (r) { return r[0] === 'mzt-gf_2026-09'; });
+  assertEqual(rawRow2.length, 1, '覆蓋後同 key 仍只有一列');
+  assertEqual(rawRow2[0][4], '2026-09-06', '覆蓋後稽核日期更新且為字串');
+})();
+
 if (failures > 0) {
   console.error('\n' + failures + ' 項測試失敗');
   process.exit(1);

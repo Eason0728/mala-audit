@@ -201,6 +201,35 @@ var gas = runner.loadGas();
   assertTrue(getAllRes.ok === true && Array.isArray(getAllRes.items), 'doPost getAll 正常路徑');
 })();
 
+// ── 年月被試算表存成 Date 時，getAll 要正規化回字串 ──────────────────
+// 2026-08-07 實測：mzt-gf_2026-08 的年月與稽核日期被 appendRow 存成 Date，
+// 前端 month === '2026-08' 比對落空 → 報告顯示「無稽核紀錄」（明細是好的，
+// 異常分析卻看得到，兩個分頁對不上）。讀取端正規化後，這種列也要端出乾淨字串。
+(function () {
+  var gas = runner.loadGas();
+  var tabs = seedTabs();
+  // 照真實壞資料：年月 Date＝台北 8/1 00:00（UTC 7/31 16:00）、稽核日期 Date
+  tabs['稽核紀錄'].push([
+    'mzt-gf_2026-08', 'mzt-gf', new Date(2026, 7, 1), '已稽核', new Date(2026, 7, 7),
+    20, 19, 95, '正確', '正確', 1234, '相符', '1.test:盤點3個，覆盤2個', '', '2026-08-07T23:36:08+08:00'
+  ]);
+  tabs['抽查明細'].push([
+    'mzt-gf_2026-08', 'mzt-gf', new Date(2026, 7, 1), 'test', '個', 3, 2, '異常', '盤點錯誤（門市盤錯）', ''
+  ]);
+  var db = runner.makeMemoryDb(tabs);
+  var res = gas.handleGetAll({ code: '1234' }, db);
+  var rec = res.records.filter(function (r) { return r.record_key === 'mzt-gf_2026-08'; })[0];
+  assertTrue(!!rec, '年月為 Date 的紀錄仍讀得到');
+  assertEqual(rec.month, '2026-08', '年月 Date → 正規化成 2026-08（報告比對得上）');
+  assertEqual(rec.audit_date, '2026-08-07', '稽核日期 Date → 正規化成 2026-08-07');
+  var det = res.details.filter(function (d) { return d.record_key === 'mzt-gf_2026-08'; })[0];
+  assertEqual(det.month, '2026-08', '明細年月 Date → 一樣正規化');
+  // 字串路徑不受影響
+  var old = res.records.filter(function (r) { return r.record_key === 'sxl-gf_2026-08'; })[0];
+  assertEqual(old.month, '2026-08', '原本就是字串的年月原樣端出');
+  assertEqual(old.audit_date, '2026-08-05', '原本就是字串的日期原樣端出');
+})();
+
 if (failures > 0) {
   console.error('\n' + failures + ' 項測試失敗');
   process.exit(1);
