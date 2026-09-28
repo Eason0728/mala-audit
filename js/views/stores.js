@@ -2,6 +2,7 @@
 // window.Views.stores = { render(el, app) }
 // 新增：只填店名，店代碼由後端自動給（st-01、st-02…），同時在試算表建一個同名的顯示分頁。
 // 停用：只是不再出現在兩張表的店別選單與總覽，歷史紀錄、顯示分頁都保留，可隨時重新啟用。
+// 改名：店代碼不變（歷史紀錄不受影響）；試算表分頁原本跟店名同名才會跟著改（後端 handleRenameStore）。
 
 (function (root) {
   'use strict';
@@ -31,10 +32,13 @@
             ' data-store="' + esc(s.code) + '" data-status="' + (s.active ? '停用' : '啟用') + '">' +
             (s.active ? '停用' : '重新啟用') + '</button>'
         : '';
+      var renameBtn = isAccountant
+        ? '<button type="button" class="store-rename" data-store="' + esc(s.code) + '">改名</button>'
+        : '';
       return '<li class="store-row' + (s.active ? '' : ' store-row-inactive') + '" data-store="' + esc(s.code) + '">' +
         '<span class="store-name">' + esc(s.name) +
           (s.active ? '' : '<span class="store-badge">停用中</span>') + '</span>' +
-        btn +
+        '<span class="store-actions">' + renameBtn + btn + '</span>' +
       '</li>';
     }).join('');
 
@@ -79,7 +83,31 @@
       });
     }
 
-    var buttons = el.querySelectorAll('button.store-toggle, #store-add-btn');
+    var buttons = el.querySelectorAll('button.store-toggle, button.store-rename, #store-add-btn');
+    function storeOf(code) {
+      return stores.filter(function (x) { return x.code === code; })[0];
+    }
+
+    var renames = el.querySelectorAll('button.store-rename');
+    for (var r = 0; r < renames.length; r++) {
+      renames[r].addEventListener('click', function (e) {
+        var code = e.currentTarget.getAttribute('data-store');
+        var s = storeOf(code);
+        var oldName = s ? s.name : code;
+        var input = root.prompt('把「' + oldName + '」改成什麼名稱？\n（歷史紀錄不受影響）', oldName);
+        if (input === null) return;
+        var name = String(input).trim();
+        if (!name || name === oldName) return;
+        setBusy(true);
+        root.Api.renameStore(app.state.code, code, name).then(function (res) {
+          var extra = res && res.tab_renamed ? '，試算表分頁也一起改名' : '';
+          return afterWrite(res, '已把「' + oldName + '」改名為「' + name + '」' + extra);
+        }, function () {
+          show('網路不穩，這次沒有送出，請再試一次', false);
+          setBusy(false);
+        });
+      });
+    }
     function setBusy(busy) {
       for (var i = 0; i < buttons.length; i++) buttons[i].disabled = busy;
     }

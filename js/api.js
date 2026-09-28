@@ -128,6 +128,30 @@
     return { ok: true, store: { code: newCode, name: name } };
   }
 
+  function mockRenameStore(code, store, name) {
+    if (!canWrite(code)) return { ok: false, error: '無權限（僅會計可修改門市名稱）' };
+    name = String(name || '').trim();
+    if (!name) return { ok: false, error: '請填門市名稱' };
+    var overlay = loadOverlay();
+    var all = mockAllStores(overlay).map(function (s) {
+      return { code: s.code, name: s.name, tab: s.tab, active: s.active };
+    });
+    var target = all.filter(function (s) { return s.code === store; })[0];
+    if (!target) return { ok: false, error: '店代碼不存在：' + store };
+    if (name === target.name) return { ok: false, error: '名稱沒有變' };
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].code !== store && (all[i].name === name || all[i].tab === name)) {
+        return { ok: false, error: '已經有「' + name + '」這家門市了' };
+      }
+    }
+    var tabRenamed = target.tab === target.name;
+    target.name = name;
+    if (tabRenamed) target.tab = name;
+    overlay.stores = all;
+    saveOverlay(overlay);
+    return { ok: true, tab_renamed: tabRenamed };
+  }
+
   function mockSetStoreStatus(code, store, status) {
     if (!canWrite(code)) return { ok: false, error: '無權限（僅會計可停用／啟用門市）' };
     if (status !== '啟用' && status !== '停用') return { ok: false, error: '狀態不合法：' + status };
@@ -312,6 +336,15 @@
           resolve(cloudCall('addStore', { code: code, name: name }));
         } else {
           resolve(mockAddStore(code, name));
+        }
+      });
+    },
+    renameStore: function (code, store, name) {
+      return new Promise(function (resolve) {
+        if (getMode() === 'cloud') {
+          resolve(cloudCall('renameStore', { code: code, store: store, name: name }));
+        } else {
+          resolve(mockRenameStore(code, store, name));
         }
       });
     },

@@ -73,7 +73,14 @@ def main():
         with sync_playwright() as p:
             browser = p.chromium.launch()
             page = browser.new_page()
-            page.on("dialog", lambda d: d.accept())
+            prompt_answer = {"text": None}
+
+            def on_dialog(d):
+                if d.type == "prompt" and prompt_answer["text"] is not None:
+                    d.accept(prompt_answer["text"])
+                else:
+                    d.accept()
+            page.on("dialog", on_dialog)
             console_errors = []
             page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
             page.on("pageerror", lambda exc: console_errors.append(str(exc)))
@@ -137,6 +144,25 @@ def main():
             page.wait_for_timeout(300)
             check("央廚" in page.inner_text("#view-overview"), "(6) 重新啟用後總覽回來")
 
+            # ---- (6b) 改名：新店改名後選單跟著變、撞名擋 ----
+            prompt_answer["text"] = "測試新店竹北"
+            page.evaluate("window.App.navigate('stores')")
+            page.wait_for_selector("#view-stores:not([hidden])", timeout=8000)
+            page.click('.store-row[data-store="st-01"] .store-rename')
+            page.wait_for_function(
+                "() => (document.querySelector('.store-row[data-store=\"st-01\"] .store-name')||{}).textContent === '測試新店竹北'",
+                timeout=8000)
+            check("試算表分頁也一起改名" in page.inner_text("#store-msg"), "(6b) 系統新增的店改名，提示分頁也改名")
+            prompt_answer["text"] = "央廚"
+            page.click('.store-row[data-store="st-01"] .store-rename')
+            page.wait_for_timeout(300)
+            check("已經有" in page.inner_text("#store-msg"), "(6b) 改成別家店名被擋")
+            prompt_answer["text"] = None
+            page.evaluate("window.App.navigate('audit')")
+            page.wait_for_selector("#audit-store", timeout=8000)
+            opts = store_options(page, "#audit-store")
+            check("測試新店竹北" in opts and "測試新店" not in opts, "(6b) 盤點選單顯示新名稱（實際 %r）" % opts)
+
             # ---- (7) 主管碼看不到入口、硬進也不能操作 ----
             page.goto(BASE_URL)
             page.wait_for_selector("#login-code", timeout=10000)
@@ -146,7 +172,8 @@ def main():
             check(page.query_selector("#home-stores") is None, "(7) 主管碼看不到門市管理入口")
             page.evaluate("window.App.navigate('stores')")
             page.wait_for_timeout(300)
-            check(page.query_selector("#store-add-btn") is None and page.query_selector(".store-toggle") is None,
+            check(page.query_selector("#store-add-btn") is None and page.query_selector(".store-toggle") is None
+                  and page.query_selector(".store-rename") is None,
                   "(7) 主管碼硬進門市管理沒有操作按鈕")
 
             # ---- (8) console 無 error ----

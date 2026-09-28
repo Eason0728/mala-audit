@@ -261,8 +261,18 @@
       return draftKeyFor(mode);
     }
 
+    // 完全沒內容（0 個品項、金庫與備註全空）不算草稿。
+    // 2026-09-28 查到：送出成功→clearDraft()→app.reload() 會先把還停在這頁的畫面重畫一次，
+    // 重畫結尾的 saveDraft() 就把一份空草稿寫回去，「未送出草稿」清單出現已送出那家店的幽靈草稿。
+    function isEmptyDraft() {
+      if (items.length) return false;
+      var v = vaultState || {};
+      return !v.change_fund && !v.petty_cash && !v.tip_amount && !v.tip_match && !v.note;
+    }
+
     function saveDraft() {
       if (!currentStore || !currentMonth) return;
+      if (isEmptyDraft()) return;
       try {
         var payload = {
           store: currentStore,

@@ -555,7 +555,8 @@ label {
   color: var(--color-danger);
 }
 
-.store-toggle {
+.store-toggle,
+.store-rename {
   flex-shrink: 0;
   padding: 6px 14px;
   border-radius: 999px;
@@ -586,4 +587,10 @@ label {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   margin: 4px 0 8px;
+}
+
+.store-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }

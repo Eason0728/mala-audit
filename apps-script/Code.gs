@@ -45,7 +45,7 @@ var STORES = [
 //      2026-08-11 加入營運稽核的 submitOpsAudit）----
 //      2026-09-28 加入門市管理的 addStore／setStoreStatus）----
 var ACTIONS = ['auth', 'getAll', 'submitAudit', 'markRest', 'submitOpsAudit',
-  'addStore', 'setStoreStatus'];
+  'addStore', 'setStoreStatus', 'renameStore'];
 
 // ---- T10：顯示分頁目標欄位配置（五分頁一律 A–I，同小辛辣光復店現況；spec.md §2.1）----
 var DISPLAY_COLS = {
@@ -132,6 +132,8 @@ function doPost(e) {
     result = handleAddStore(payload, db);
   } else if (action === 'setStoreStatus') {
     result = handleSetStoreStatus(payload, db);
+  } else if (action === 'renameStore') {
+    result = handleRenameStore(payload, db);
   }
   return respond_(result);
 }
@@ -611,6 +613,21 @@ var MONTH_LABELS_ = ['一月', '二月', '三月', '四月', '五月', '六月',
 var DISPLAY_TAB_HEADER_ = ['月份', '盤點抽查數量', '複盤正確數量', '正確率', '零找金是否正確',
   '零用金是否正確', '小費是否正確', '小費金額', '複盤異常說明'];
 
+// storeNameError_(name, stores, exceptCode) → null | 錯誤字串（新增與改名共用的店名檢查）
+function storeNameError_(name, stores, exceptCode) {
+  if (!name) return '請填門市名稱';
+  if (name.length > 20) return '門市名稱太長（最多 20 字）';
+  if (/[\[\]*?:\/\\']/.test(name)) return '門市名稱不能有這些符號：[ ] * ? : / \\ \'';
+  for (var i = 0; i < stores.length; i++) {
+    if (stores[i].code === exceptCode) continue;
+    if (stores[i].name === name || stores[i].tab === name) {
+      return '已經有「' + name + '」這家門市了' + (stores[i].active ? '' : '（目前停用中，可直接重新啟用）');
+    }
+  }
+  if (reservedTabNames_().indexOf(name) !== -1) return '試算表已經有叫「' + name + '」的分頁，請換一個門市名稱';
+  return null;
+}
+
 // handleAddStore({code, name}, db) → {ok:true, store:{code,name}} | {ok:false, error}
 // 新增一列到「門市」分頁＋建一個同名的顯示分頁（A–I 表頭＋一月～十二月），
 // 送出盤點時照舊回寫那一頁，主管打開試算表看到的格式跟既有五店一樣。
@@ -620,20 +637,10 @@ function handleAddStore(payload, db) {
     return { ok: false, error: '無權限（僅會計可新增門市）' };
   }
   var name = String((payload && payload.name) || '').trim();
-  if (!name) return { ok: false, error: '請填門市名稱' };
-  if (name.length > 20) return { ok: false, error: '門市名稱太長（最多 20 字）' };
-  if (/[\[\]*?:\/\\']/.test(name)) {
-    return { ok: false, error: '門市名稱不能有這些符號：[ ] * ? : / \\ \'' };
-  }
-
   var stores = readStores_(db);
-  for (var i = 0; i < stores.length; i++) {
-    if (stores[i].name === name || stores[i].tab === name) {
-      return { ok: false, error: '已經有「' + name + '」這家門市了' +
-        (stores[i].active ? '' : '（目前停用中，可直接重新啟用）') };
-    }
-  }
-  if (reservedTabNames_().indexOf(name) !== -1 || db.hasTab(name)) {
+  var nameErr = storeNameError_(name, stores, null);
+  if (nameErr) return { ok: false, error: nameErr };
+  if (db.hasTab(name)) {
     return { ok: false, error: '試算表已經有叫「' + name + '」的分頁，請換一個門市名稱' };
   }
 
@@ -647,6 +654,45 @@ function handleAddStore(payload, db) {
   })));
 
   return { ok: true, store: { code: code, name: name } };
+}
+
+// handleRenameStore({code, store, name}, db) → {ok:true, tab_renamed:bool} | {ok:false, error}
+// 改「門市」分頁的店名。顯示分頁只在「分頁名＝舊店名」時跟著改名（系統新增的店、央廚）；
+// 原本分頁名跟店名不同的（例：墨竹亭光復→分頁「光復店」）分頁名不動，主管找得到熟悉的分頁。
+// 店代碼永遠不變，所以歷史紀錄（record_key）不受影響。
+function handleRenameStore(payload, db) {
+  var role = resolveRole_(payload && payload.code, db);
+  if (role !== 'accountant') {
+    return { ok: false, error: '無權限（僅會計可修改門市名稱）' };
+  }
+  var storeCode = payload && payload.store;
+  var name = String((payload && payload.name) || '').trim();
+  var stores = readStores_(db);
+  var target = null;
+  stores.forEach(function (s) { if (s.code === storeCode) target = s; });
+  if (!target) return { ok: false, error: '店代碼不存在：' + storeCode };
+  if (name === target.name) return { ok: false, error: '名稱沒有變' };
+  var nameErr = storeNameError_(name, stores, storeCode);
+  if (nameErr) return { ok: false, error: nameErr };
+
+  var renameTab = target.tab === target.name && db.hasTab(target.tab);
+  if (renameTab && db.hasTab(name)) {
+    return { ok: false, error: '試算表已經有叫「' + name + '」的分頁，請換一個門市名稱' };
+  }
+
+  ensureStoresTab_(db);
+  var rows = db.getRows(TAB_STORES);
+  for (var r = 1; r < rows.length; r++) {
+    if (String(rows[r][0]).trim() === storeCode) {
+      db.setCell(TAB_STORES, 'B' + (r + 1), name);
+      if (renameTab) {
+        db.renameTab(target.tab, name);
+        db.setCell(TAB_STORES, 'C' + (r + 1), name);
+      }
+      return { ok: true, tab_renamed: renameTab };
+    }
+  }
+  return { ok: false, error: '店代碼不存在：' + storeCode };
 }
 
 // handleSetStoreStatus({code, store, status}, db) → {ok:true} | {ok:false, error}
@@ -908,6 +954,11 @@ function makeDb_() {
       if (!sheet_(tabName)) {
         ss.insertSheet(tabName);
       }
+    },
+    // 門市改名時顯示分頁跟著改（2026-09-28）
+    renameTab: function (oldName, newName) {
+      var sh = sheet_(oldName);
+      if (sh) sh.setName(newName);
     }
   };
 }

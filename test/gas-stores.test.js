@@ -142,10 +142,51 @@ function codes(list) { return list.map(function (s) { return s.code; }); }
   assertEqual(db.getCell('新店', 'D10'), '=C10/B10', '(6) D 欄照樣是公式');
 })();
 
+// (8) 改名：系統新增的店 → 分頁跟著改；歷史紀錄照樣回寫到新分頁
+(function () {
+  var gas = runner.loadGas();
+  var db = freshDb();
+  gas.handleAddStore({ code: '1234', name: '新店' }, db);
+  var res = gas.handleRenameStore({ code: '1234', store: 'st-01', name: '新店竹北' }, db);
+  assertEqual(res, { ok: true, tab_renamed: true }, '(8) 改名成功、分頁跟著改');
+  assertTrue(db.hasTab('新店竹北') && !db.hasTab('新店'), '(8) 顯示分頁已改名');
+  assertEqual(db.getRows('門市')[6], ['st-01', '新店竹北', '新店竹北', '啟用'], '(8) 門市分頁店名與分頁名都更新');
+  var all = gas.handleGetAll({ code: '1234' }, db);
+  assertEqual(all.config.stores[5], { code: 'st-01', name: '新店竹北', order: 6 }, '(8) getAll 回新名、代碼不變');
+  gas.handleMarkRest({ code: '1234', store: 'st-01', month: '2026-10' }, db);
+  assertEqual(db.getCell('新店竹北', 'C11'), '輪休', '(8) 改名後回寫到新分頁');
+})();
+
+// (9) 改名：分頁名本來就跟店名不同 → 只改店名、分頁不動
+(function () {
+  var gas = runner.loadGas();
+  var db = freshDb();
+  var res = gas.handleRenameStore({ code: '1234', store: 'mzt-gf', name: '墨竹亭光復本店' }, db);
+  assertEqual(res, { ok: true, tab_renamed: false }, '(9) 改名成功、分頁不動');
+  assertTrue(db.hasTab('光復店'), '(9) 光復店分頁還在');
+  assertEqual(db.getRows('門市')[3], ['mzt-gf', '墨竹亭光復本店', '光復店', '啟用'], '(9) 只改店名欄');
+})();
+
+// (10) 改名的擋法
+(function () {
+  var gas = runner.loadGas();
+  var db = freshDb();
+  assertEqual(gas.handleRenameStore({ code: '5678', store: 'ck', name: 'X' }, db).ok, false, '(10) 主管碼不得改名');
+  assertTrue(/已經有/.test(gas.handleRenameStore({ code: '1234', store: 'ck', name: '小辛辣光復' }, db).error), '(10) 撞別家店名擋');
+  assertTrue(/已經有/.test(gas.handleRenameStore({ code: '1234', store: 'ck', name: '金山店' }, db).error), '(10) 撞別家分頁名擋');
+  assertEqual(gas.handleRenameStore({ code: '1234', store: 'ck', name: '央廚' }, db).error, '名稱沒有變', '(10) 同名不改');
+  assertEqual(gas.handleRenameStore({ code: '1234', store: 'ck', name: '' }, db).error, '請填門市名稱', '(10) 空名稱擋');
+  assertEqual(gas.handleRenameStore({ code: '1234', store: 'nope', name: 'Y' }, db).ok, false, '(10) 不存在的店代碼擋');
+  db.createTab('雜項');
+  assertTrue(/分頁/.test(gas.handleRenameStore({ code: '1234', store: 'ck', name: '雜項' }, db).error), '(10) 分頁要跟著改時撞到既有分頁擋');
+  assertTrue(!db.hasTab('門市'), '(10) 被擋下時不建門市分頁');
+})();
+
 // (7) doPost 白名單有開
 (function () {
   var gas = runner.loadGas();
-  assertTrue(gas.ACTIONS.indexOf('addStore') !== -1 && gas.ACTIONS.indexOf('setStoreStatus') !== -1, '(7) ACTIONS 含兩個新動作');
+  assertTrue(gas.ACTIONS.indexOf('addStore') !== -1 && gas.ACTIONS.indexOf('setStoreStatus') !== -1 &&
+    gas.ACTIONS.indexOf('renameStore') !== -1, '(7) ACTIONS 含三個門市管理動作');
 })();
 
 if (failures > 0) {

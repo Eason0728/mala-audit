@@ -110,6 +110,11 @@ function makeMemoryDb(seedTabs) {
     createTab: function (tabName) {
       if (!data[tabName]) data[tabName] = [];
     },
+    renameTab: function (oldName, newName) {
+      if (!data[oldName]) return;
+      data[newName] = data[oldName];
+      delete data[oldName];
+    },
     // 測試專用：直接讀底層資料，不走 getRows 的複製
     _raw: data,
     _textCols: textCols
