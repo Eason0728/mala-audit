@@ -48,9 +48,18 @@
         '</button>';
     }).join('');
 
+    // 門市管理入口（2026-09-28）：只給會計，主管唯讀角色看不到
+    var storesBtn = app.state.role === 'accountant'
+      ? '<button type="button" id="home-stores" class="btn btn-secondary home-stores">門市管理（新增／停用門市）</button>'
+      : '';
+
     el.innerHTML =
       '<h2>請選擇要做哪一張表</h2>' +
-      '<div class="module-list">' + cardsHtml + '</div>';
+      '<div class="module-list">' + cardsHtml + '</div>' +
+      storesBtn;
+
+    var sb = el.querySelector('#home-stores');
+    if (sb) sb.addEventListener('click', function () { app.navigate('stores'); });
 
     var cards = el.querySelectorAll('.module-card');
     for (var i = 0; i < cards.length; i++) {

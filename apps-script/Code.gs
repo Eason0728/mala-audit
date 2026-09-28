@@ -25,8 +25,14 @@ var TAB_DETAILS = '抽查明細';
 // 但資料完全分開兩個分頁，**不回寫五個顯示分頁**（那五頁是盤點專用的 A–I 格式）。
 var TAB_OPS_RECORDS = '營運稽核紀錄';
 var TAB_OPS_DETAILS = '營運稽核明細';
+// 門市清單（2026-09-28 新增）：會計可在畫面上新增／停用門市。分頁不存在時退回下方 STORES
+// 常數（＝原本的五個節點），第一次新增或停用時才把 STORES 抄進分頁再改。
+var TAB_STORES = '門市';
+var STORES_HEADER = ['店代碼', '店名', '分頁名', '狀態'];
+var STORE_STATUS_VALUES = ['啟用', '停用'];
 
 // ---- 店代碼表（spec.md §5，逐字元對應既有分頁名，不看順序）----
+// 2026-09-28 起這只是「門市」分頁還沒建立時的預設值；正本改讀 readStores_(db)。
 var STORES = [
   { code: 'sxl-gf', name: '小辛辣光復', tab: '小辛辣光復店' },
   { code: 'ck', name: '央廚', tab: '央廚' },
@@ -37,7 +43,9 @@ var STORES = [
 
 // ---- doPost 白名單（T9 開放 auth/getAll；T10 加入 submitAudit/markRest；
 //      2026-08-11 加入營運稽核的 submitOpsAudit）----
-var ACTIONS = ['auth', 'getAll', 'submitAudit', 'markRest', 'submitOpsAudit'];
+//      2026-09-28 加入門市管理的 addStore／setStoreStatus）----
+var ACTIONS = ['auth', 'getAll', 'submitAudit', 'markRest', 'submitOpsAudit',
+  'addStore', 'setStoreStatus'];
 
 // ---- T10：顯示分頁目標欄位配置（五分頁一律 A–I，同小辛辣光復店現況；spec.md §2.1）----
 var DISPLAY_COLS = {
@@ -120,6 +128,10 @@ function doPost(e) {
     result = handleMarkRest(payload, db);
   } else if (action === 'submitOpsAudit') {
     result = handleSubmitOpsAudit(payload, db);
+  } else if (action === 'addStore') {
+    result = handleAddStore(payload, db);
+  } else if (action === 'setStoreStatus') {
+    result = handleSetStoreStatus(payload, db);
   }
   return respond_(result);
 }
@@ -150,12 +162,19 @@ function handleGetAll(payload, db) {
   }
 
   var settings = readSettings_(db);
+  var allStores = readStores_(db);
   var config = {
     reasons: settings.reasonsRaw ? settings.reasonsRaw.split('／') : [],
     change_fund_std: settings.changeFundStd,
     petty_cash_std: settings.pettyCashStd,
-    stores: STORES.map(function (s, i) {
+    // stores＝啟用中的門市（各畫面的店別下拉、總覽都讀這份）；停用的不出現，歷史資料照樣留在分頁裡。
+    // all_stores＝含停用的完整清單，只給「門市管理」畫面用。欄位名刻意用 code 不用 store，
+    // dzy 平台層的店長節點裁切只過濾帶 store 欄位的陣列，這兩份不會被誤裁。
+    stores: allStores.filter(function (s) { return s.active; }).map(function (s, i) {
       return { code: s.code, name: s.name, order: i + 1 };
+    }),
+    all_stores: allStores.map(function (s, i) {
+      return { code: s.code, name: s.name, tab: s.tab, active: s.active, order: i + 1 };
     }),
     accountant_ok: role === 'accountant'
   };
@@ -185,7 +204,7 @@ function handleSubmitAudit(payload, db) {
   var record = payload.record;
   var details = payload.details || [];
 
-  var recordErr = validateRecord_(record);
+  var recordErr = validateRecord_(record, db);
   if (recordErr) {
     return { ok: false, error: recordErr };
   }
@@ -213,7 +232,7 @@ function handleMarkRest(payload, db) {
 
   var store = payload && payload.store;
   var month = payload && payload.month;
-  if (!storeByCode_(store)) {
+  if (!storeByCode_(store, db)) {
     return { ok: false, error: '店代碼不存在：' + store };
   }
   if (!/^\d{4}-\d{2}$/.test(String(month))) {
@@ -251,7 +270,7 @@ function handleSubmitOpsAudit(payload, db) {
   var record = payload.record;
   var details = payload.details || [];
 
-  var recordErr = validateOpsRecord_(record);
+  var recordErr = validateOpsRecord_(record, db);
   if (recordErr) {
     return { ok: false, error: recordErr };
   }
@@ -418,11 +437,11 @@ function readOpsDetails_(db) {
 }
 
 // validateOpsRecord_(record) → null（合法）| 錯誤字串
-function validateOpsRecord_(record) {
+function validateOpsRecord_(record, db) {
   if (!record || typeof record !== 'object') return '缺少 record';
   var store = record.store;
   var month = record.month;
-  if (!storeByCode_(store)) return '店代碼不存在：' + store;
+  if (!storeByCode_(store, db)) return '店代碼不存在：' + store;
   if (!/^\d{4}-\d{2}$/.test(String(month))) return '年月格式錯誤：' + month;
   if (record.record_key !== store + '_' + month) {
     return 'record_key 格式錯誤：' + record.record_key;
@@ -528,12 +547,136 @@ function replaceOpsDetails_(db, key, details) {
   db.setRows(TAB_OPS_DETAILS, [header].concat(kept, newRows));
 }
 
-// storeByCode_(code) → STORES 該筆物件 | null
-function storeByCode_(code) {
-  for (var i = 0; i < STORES.length; i++) {
-    if (STORES[i].code === code) return STORES[i];
+// storeByCode_(code, db) → {code,name,tab,active} | null
+// 停用的門市也找得到：停用只是不出現在選單，舊紀錄與顯示分頁都還在。
+// 沒帶 db（舊測試直接呼叫 validate*_）時退回 STORES 常數。
+function storeByCode_(code, db) {
+  var list = db ? readStores_(db) : STORES;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].code === code) return list[i];
   }
   return null;
+}
+
+// ── 門市管理（2026-09-28）──────────────────────────────────────────
+
+// readStores_(db) → [{code,name,tab,active}]，依分頁列序。
+// 「門市」分頁不存在或只有表頭 → 退回 STORES 常數（全部啟用），行為與改版前完全相同。
+function readStores_(db) {
+  var rows = (db && db.hasTab && db.hasTab(TAB_STORES)) ? db.getRows(TAB_STORES) : [];
+  var list = [];
+  rows.slice(1).forEach(function (r) {
+    var code = r && String(r[0] == null ? '' : r[0]).trim();
+    if (!code) return;
+    list.push({
+      code: code,
+      name: String(r[1] == null ? '' : r[1]).trim() || code,
+      tab: String(r[2] == null ? '' : r[2]).trim(),
+      active: String(r[3] == null ? '' : r[3]).trim() !== '停用'
+    });
+  });
+  if (list.length) return list;
+  return STORES.map(function (s) {
+    return { code: s.code, name: s.name, tab: s.tab, active: true };
+  });
+}
+
+// ensureStoresTab_(db)：分頁不存在（或空的）→ 建起來並把目前清單（＝STORES 預設）寫進去
+function ensureStoresTab_(db) {
+  var rows = db.hasTab(TAB_STORES) ? db.getRows(TAB_STORES) : [];
+  var hasData = rows.slice(1).some(function (r) { return r && String(r[0] || '').trim(); });
+  if (hasData) return;
+  if (!db.hasTab(TAB_STORES)) db.createTab(TAB_STORES);
+  db.setRows(TAB_STORES, [STORES_HEADER].concat(STORES.map(function (s) {
+    return [s.code, s.name, s.tab, '啟用'];
+  })));
+}
+
+// 資料分頁名稱：新門市的顯示分頁不得跟它們撞名
+function reservedTabNames_() {
+  return [TAB_SETTINGS, TAB_ITEMS, TAB_RECORDS, TAB_DETAILS, TAB_OPS_RECORDS, TAB_OPS_DETAILS, TAB_STORES];
+}
+
+// nextStoreCode_(stores) → 'st-01'、'st-02'…（新門市一律用這個流水號；不可含底線，record_key 用底線切）
+function nextStoreCode_(stores) {
+  var max = 0;
+  stores.forEach(function (s) {
+    var m = /^st-(\d+)$/.exec(s.code);
+    if (m) max = Math.max(max, Number(m[1]));
+  });
+  return 'st-' + pad2_(max + 1);
+}
+
+var MONTH_LABELS_ = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+var DISPLAY_TAB_HEADER_ = ['月份', '盤點抽查數量', '複盤正確數量', '正確率', '零找金是否正確',
+  '零用金是否正確', '小費是否正確', '小費金額', '複盤異常說明'];
+
+// handleAddStore({code, name}, db) → {ok:true, store:{code,name}} | {ok:false, error}
+// 新增一列到「門市」分頁＋建一個同名的顯示分頁（A–I 表頭＋一月～十二月），
+// 送出盤點時照舊回寫那一頁，主管打開試算表看到的格式跟既有五店一樣。
+function handleAddStore(payload, db) {
+  var role = resolveRole_(payload && payload.code, db);
+  if (role !== 'accountant') {
+    return { ok: false, error: '無權限（僅會計可新增門市）' };
+  }
+  var name = String((payload && payload.name) || '').trim();
+  if (!name) return { ok: false, error: '請填門市名稱' };
+  if (name.length > 20) return { ok: false, error: '門市名稱太長（最多 20 字）' };
+  if (/[\[\]*?:\/\\']/.test(name)) {
+    return { ok: false, error: '門市名稱不能有這些符號：[ ] * ? : / \\ \'' };
+  }
+
+  var stores = readStores_(db);
+  for (var i = 0; i < stores.length; i++) {
+    if (stores[i].name === name || stores[i].tab === name) {
+      return { ok: false, error: '已經有「' + name + '」這家門市了' +
+        (stores[i].active ? '' : '（目前停用中，可直接重新啟用）') };
+    }
+  }
+  if (reservedTabNames_().indexOf(name) !== -1 || db.hasTab(name)) {
+    return { ok: false, error: '試算表已經有叫「' + name + '」的分頁，請換一個門市名稱' };
+  }
+
+  ensureStoresTab_(db);
+  var code = nextStoreCode_(stores);
+  db.appendRow(TAB_STORES, [code, name, name, '啟用']);
+
+  db.createTab(name);
+  db.setRows(name, [DISPLAY_TAB_HEADER_].concat(MONTH_LABELS_.map(function (m) {
+    return [m, '', '', '', '', '', '', '', ''];
+  })));
+
+  return { ok: true, store: { code: code, name: name } };
+}
+
+// handleSetStoreStatus({code, store, status}, db) → {ok:true} | {ok:false, error}
+// 只改「門市」分頁的狀態欄，不刪任何紀錄、不動顯示分頁。
+function handleSetStoreStatus(payload, db) {
+  var role = resolveRole_(payload && payload.code, db);
+  if (role !== 'accountant') {
+    return { ok: false, error: '無權限（僅會計可停用／啟用門市）' };
+  }
+  var storeCode = payload && payload.store;
+  var status = payload && payload.status;
+  if (STORE_STATUS_VALUES.indexOf(status) === -1) return { ok: false, error: '狀態不合法：' + status };
+  var stores = readStores_(db);
+  var target = null;
+  stores.forEach(function (s) { if (s.code === storeCode) target = s; });
+  if (!target) return { ok: false, error: '店代碼不存在：' + storeCode };
+  if (status === '停用') {
+    var activeCount = stores.filter(function (s) { return s.active; }).length;
+    if (target.active && activeCount <= 1) return { ok: false, error: '至少要留一家啟用中的門市' };
+  }
+
+  ensureStoresTab_(db);
+  var rows = db.getRows(TAB_STORES);
+  for (var r = 1; r < rows.length; r++) {
+    if (String(rows[r][0]).trim() === storeCode) {
+      db.setCell(TAB_STORES, 'D' + (r + 1), status);
+      return { ok: true };
+    }
+  }
+  return { ok: false, error: '店代碼不存在：' + storeCode };
 }
 
 // ---- 年月／日期欄位正規化（2026-08-07 mzt-gf 實測教訓）----
@@ -577,11 +720,11 @@ function nowISO_() {
 }
 
 // validateRecord_(record) → null（合法）| 錯誤字串（spec.md §5：record_key 格式、店代碼、枚舉逐字元）
-function validateRecord_(record) {
+function validateRecord_(record, db) {
   if (!record || typeof record !== 'object') return '缺少 record';
   var store = record.store;
   var month = record.month;
-  if (!storeByCode_(store)) return '店代碼不存在：' + store;
+  if (!storeByCode_(store, db)) return '店代碼不存在：' + store;
   if (!/^\d{4}-\d{2}$/.test(String(month))) return '年月格式錯誤：' + month;
   var expectedKey = store + '_' + month;
   if (record.record_key !== expectedKey) return 'record_key 格式錯誤：' + record.record_key;
@@ -675,7 +818,7 @@ function tipMatchDisplay_(value) {
 
 // writeDisplayTabAudited_(db, record) → 已稽核回寫：B–I 全寫，D 一律公式 =C{row}/B{row}
 function writeDisplayTabAudited_(db, record) {
-  var store = storeByCode_(record.store);
+  var store = storeByCode_(record.store, db);
   if (!store) return;
   var tab = store.tab;
   var row = monthRow_(record.month);
@@ -691,7 +834,7 @@ function writeDisplayTabAudited_(db, record) {
 
 // writeDisplayTabRest_(db, store, month) → 輪休回寫：C=輪休，D–I 清空，B 保留原值
 function writeDisplayTabRest_(db, storeCode, month) {
-  var store = storeByCode_(storeCode);
+  var store = storeByCode_(storeCode, db);
   if (!store) return;
   var tab = store.tab;
   var row = monthRow_(month);

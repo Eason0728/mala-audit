@@ -33,17 +33,18 @@
 
   function loadOverlay() {
     var raw = storage.getItem(DB_KEY);
-    if (!raw) return { records: {}, details: {}, ops_records: {}, ops_details: {} };
+    if (!raw) return { records: {}, details: {}, ops_records: {}, ops_details: {}, stores: null };
     try {
       var parsed = JSON.parse(raw);
       return {
         records: parsed.records || {},
         details: parsed.details || {},
         ops_records: parsed.ops_records || {},
-        ops_details: parsed.ops_details || {}
+        ops_details: parsed.ops_details || {},
+        stores: parsed.stores || null
       };
     } catch (e) {
-      return { records: {}, details: {}, ops_records: {}, ops_details: {} };
+      return { records: {}, details: {}, ops_records: {}, ops_details: {}, stores: null };
     }
   }
 
@@ -80,6 +81,71 @@
   }
 
   // ---- mock 實作 ----
+
+  // 門市清單（2026-09-28）：overlay.stores 有值就用它（含停用），沒有就是種子五店。
+  // 形狀跟後端 readStores_ 一樣：{code, name, tab, active}
+  function mockAllStores(overlay) {
+    if (overlay.stores && overlay.stores.length) return overlay.stores;
+    return MockData.config.stores.map(function (s) {
+      return { code: s.code, name: s.name, tab: s.name, active: true };
+    });
+  }
+
+  function mockConfig(overlay) {
+    var all = mockAllStores(overlay);
+    var cfg = {};
+    Object.keys(MockData.config).forEach(function (k) { cfg[k] = MockData.config[k]; });
+    cfg.stores = all.filter(function (s) { return s.active; }).map(function (s, i) {
+      return { code: s.code, name: s.name, order: i + 1 };
+    });
+    cfg.all_stores = all.map(function (s, i) {
+      return { code: s.code, name: s.name, tab: s.tab, active: s.active, order: i + 1 };
+    });
+    return cfg;
+  }
+
+  function mockAddStore(code, name) {
+    if (!canWrite(code)) return { ok: false, error: '無權限（僅會計可新增門市）' };
+    name = String(name || '').trim();
+    if (!name) return { ok: false, error: '請填門市名稱' };
+    var overlay = loadOverlay();
+    var all = mockAllStores(overlay).slice();
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].name === name || all[i].tab === name) {
+        return { ok: false, error: '已經有「' + name + '」這家門市了' +
+          (all[i].active ? '' : '（目前停用中，可直接重新啟用）') };
+      }
+    }
+    var max = 0;
+    all.forEach(function (s) {
+      var m = /^st-(\d+)$/.exec(s.code);
+      if (m) max = Math.max(max, Number(m[1]));
+    });
+    var newCode = 'st-' + (max + 1 < 10 ? '0' : '') + (max + 1);
+    all.push({ code: newCode, name: name, tab: name, active: true });
+    overlay.stores = all;
+    saveOverlay(overlay);
+    return { ok: true, store: { code: newCode, name: name } };
+  }
+
+  function mockSetStoreStatus(code, store, status) {
+    if (!canWrite(code)) return { ok: false, error: '無權限（僅會計可停用／啟用門市）' };
+    if (status !== '啟用' && status !== '停用') return { ok: false, error: '狀態不合法：' + status };
+    var overlay = loadOverlay();
+    var all = mockAllStores(overlay).map(function (s) {
+      return { code: s.code, name: s.name, tab: s.tab, active: s.active };
+    });
+    var target = all.filter(function (s) { return s.code === store; })[0];
+    if (!target) return { ok: false, error: '店代碼不存在：' + store };
+    if (status === '停用' && target.active &&
+        all.filter(function (s) { return s.active; }).length <= 1) {
+      return { ok: false, error: '至少要留一家啟用中的門市' };
+    }
+    target.active = status === '啟用';
+    overlay.stores = all;
+    saveOverlay(overlay);
+    return { ok: true };
+  }
 
   function mockAuth(code) {
     var role = checkCode(code);
@@ -121,7 +187,7 @@
 
     return {
       ok: true,
-      config: MockData.config,
+      config: mockConfig(overlay),
       items: MockData.items,
       records: records,
       details: details,
@@ -236,6 +302,25 @@
           resolve(cloudCall('markRest', { code: code, store: store, month: month }));
         } else {
           resolve(mockMarkRest(code, store, month));
+        }
+      });
+    },
+    // ---- 門市管理（2026-09-28）----
+    addStore: function (code, name) {
+      return new Promise(function (resolve) {
+        if (getMode() === 'cloud') {
+          resolve(cloudCall('addStore', { code: code, name: name }));
+        } else {
+          resolve(mockAddStore(code, name));
+        }
+      });
+    },
+    setStoreStatus: function (code, store, status) {
+      return new Promise(function (resolve) {
+        if (getMode() === 'cloud') {
+          resolve(cloudCall('setStoreStatus', { code: code, store: store, status: status }));
+        } else {
+          resolve(mockSetStoreStatus(code, store, status));
         }
       });
     },

@@ -19,7 +19,9 @@
     // 營運稽核表（2026-08-11）
     opsoverview: 'view-opsoverview',
     ops: 'view-ops',
-    opsreport: 'view-opsreport'
+    opsreport: 'view-opsreport',
+    // 門市管理（2026-09-28）：不屬於任何區塊，從選單進出，導覽列收起
+    stores: 'view-stores'
   };
 
   // 登入後先進「選單」（home），選了區塊才進該區塊的分頁。
@@ -55,7 +57,7 @@
     MODULES[key].tabs.forEach(function (t) { TAB_MODULE[t.tab] = key; });
   });
 
-  var NAV_TABS = Object.keys(TAB_MODULE).concat(['home']);
+  var NAV_TABS = Object.keys(TAB_MODULE).concat(['home', 'stores']);
 
   var App = {
     MODULES: MODULES,
@@ -119,7 +121,7 @@
       if (!this.state.role) return;
       this.state.tab = tab;
       this.state.params = params || {};
-      this.state.module = tab === 'home' ? null : TAB_MODULE[tab];
+      this.state.module = TAB_MODULE[tab] || null;
       this.renderNav();
       this.showSection(tab);
       this.setActiveNav(tab);

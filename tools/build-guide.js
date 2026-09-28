@@ -126,7 +126,7 @@ function page(title, subtitle, bodyHtml) {
 </div></header>
 <div class="wrap">
 ${bodyHtml}
-<footer>稽核系統｜鼎兆元　操作說明書　2026-08-01 版<br>
+<footer>鼎兆元｜稽核系統　操作說明書　2026-08-01 版<br>
 內容有疑問，或說明跟畫面不一樣，請告知 Eason。</footer>
 </div>
 </body>
